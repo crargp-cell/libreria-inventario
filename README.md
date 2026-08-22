@@ -1,36 +1,147 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 Sistema de Inventario - Librería
 
-## Getting Started
+Sistema completo de gestión de inventario para librerías con autenticación, roles de usuario, reportes y auditoría.
 
-First, run the development server:
+## 🚀 Características
 
+### 🔐 Autenticación & Seguridad
+- ✅ Login/Logout con JWT tokens
+- ✅ Tokens almacenados en httpOnly cookies
+- ✅ 4 roles de usuario: Superadmin, Admin, Supervisor, Cajero
+- ✅ Control de acceso basado en roles (RBAC)
+- ✅ Contraseñas hasheadas con bcryptjs
+- ✅ Auditoría completa de acciones (quién, qué, cuándo)
+
+### 📦 Gestión de Inventario
+- ✅ CRUD de productos con categorías
+- ✅ Control de stock con niveles mínimos
+- ✅ Indicadores de estado (En stock, Stock bajo, Agotados)
+- ✅ Búsqueda y filtrado de productos
+
+### 🛒 Órdenes/Ventas
+- ✅ Crear órdenes con múltiples items
+- ✅ Actualización automática de inventario
+
+### 🔄 Restock
+- ✅ Solicitudes de reabastecimiento
+- ✅ Aprobación/Rechazo (Admin)
+
+### 📊 Reportes & Analítica
+- ✅ Dashboard con KPIs
+- ✅ Gráficas interactivas (Recharts)
+- ✅ Top productos más vendidos
+- ✅ Período configurable (7, 30, 90 días)
+
+### 📝 Auditoría
+- ✅ Registro completo de todas las acciones
+- ✅ Filtrado por acción y tipo de entidad
+
+### 👥 Gestión de Usuarios
+- ✅ CRUD de usuarios con roles
+- ✅ Soft-delete y reactivación
+
+## 🛠️ Tech Stack
+
+- **Frontend:** Next.js 16, React 19, TypeScript
+- **Backend:** Next.js API Routes
+- **Base de Datos:** SQLite (Prisma ORM)
+- **Autenticación:** JWT
+- **Estilos:** Tailwind CSS
+- **Gráficas:** Recharts
+
+## 🚀 Instalación Rápida
+
+### 1. Instalar dependencias
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Crear BD y migraciones
+```bash
+npm run db:migrate
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Cargar datos de prueba (opcional)
+```bash
+npm run db:seed
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Iniciar servidor
+```bash
+npm run dev
+```
 
-## Learn More
+Abre http://localhost:3000
 
-To learn more about Next.js, take a look at the following resources:
+## 🔑 Credenciales de Prueba
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+Superadmin: superadmin@example.com / password123
+Admin: admin@example.com / password123
+Supervisor: supervisor@example.com / password123
+Cajero: cajero1@example.com / password123
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📁 Proyecto Completo
 
-## Deploy on Vercel
+✅ **15 API Routes** - Todas las funciones backend
+✅ **8 Páginas Dashboard** - Interfaz completa por rol
+✅ **9 Modelos BD** - Esquema Prisma completo
+✅ **4 Roles Usuarios** - RBAC implementado
+✅ **Auditoría Completa** - Quién, qué, cuándo
+✅ **Reportes Interactivos** - Gráficas con Recharts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🎯 URLs Principales
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Login:** http://localhost:3000/login
+- **Dashboard:** http://localhost:3000/dashboard
+- **Usuarios:** http://localhost:3000/dashboard/users
+- **Inventario:** http://localhost:3000/dashboard/inventory
+- **Ventas:** http://localhost:3000/dashboard/sales
+- **Restock:** http://localhost:3000/dashboard/restock
+- **Reportes:** http://localhost:3000/dashboard/reports
+- **Auditoría:** http://localhost:3000/dashboard/audit
+
+## 🔧 Comandos
+
+```bash
+npm run dev              # Desarrollo
+npm run db:migrate       # Migraciones
+npm run db:seed          # Datos de prueba
+npm run db:studio        # Prisma Studio
+npm run build            # Build producción
+npm start                # Iniciar producción
+```
+
+## 📊 Ver datos visualmente
+
+```bash
+npm run db:studio
+# Abre http://localhost:5555
+```
+
+## 🚢 Deployment
+
+### Vercel
+```bash
+npm i -g vercel
+vercel
+```
+
+### Railway, Fly.io, Render
+- Conectar GitHub
+- Agregar PostgreSQL
+- Configurar DATABASE_URL
+- Deploy automático
+
+## 🔒 Producción
+
+- Cambiar NEXTAUTH_SECRET en .env
+- Usar PostgreSQL en lugar de SQLite
+- Cambiar contraseñas de prueba
+- Habilitar HTTPS
+- Configurar backups
+
+---
+
+**¡Sistema listo para usar!** 🎉
