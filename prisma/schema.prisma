@@ -6,33 +6,21 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // ============================================
 // USUARIOS - 4 roles
 // ============================================
-enum UserRole {
-  SUPERADMIN
-  ADMIN
-  SUPERVISOR
-  CAJERO
-}
-
-enum UserStatus {
-  active
-  inactive
-  deleted
-}
 
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
   passwordHash String
-  role      UserRole
-  status    UserStatus @default(active)
+  role      String   @default("cajero") // SUPERADMIN | ADMIN | SUPERVISOR | CAJERO
+  status    String   @default("active")  // active | inactive | deleted
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   lastLogin DateTime?
@@ -42,8 +30,6 @@ model User {
   createdRestocks   RestockRequest[] @relation("RestockCreatedBy")
   approvedRestocks  RestockRequest[] @relation("RestockApprovedBy")
   auditLogs         AuditLog[]    @relation("AuditLogUser")
-  deletedByUsers    User[]        @relation("DeletedBy")
-  deletedUsers      User[]        @relation("DeletedBy")
   transactions      Transaction[]
 
   @@index([email])
@@ -70,12 +56,6 @@ model Category {
 // ============================================
 // INVENTARIO - Stock de libros/productos
 // ============================================
-enum StockStatus {
-  in_stock
-  low_stock
-  out_of_stock
-}
-
 model InventoryItem {
   id            String   @id @default(cuid())
   code          String   @unique
@@ -86,7 +66,7 @@ model InventoryItem {
   minStockLevel Int      @default(10)
   unitPrice     Float
   supplier      String?
-  status        StockStatus @default(in_stock)
+  status        String   @default("in_stock") // in_stock | low_stock | out_of_stock
   lastRestocked DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -104,24 +84,17 @@ model InventoryItem {
 // ============================================
 // PEDIDOS/ÓRDENES DE VENTA
 // ============================================
-enum OrderStatus {
-  pending
-  processing
-  completed
-  cancelled
-}
-
 model Order {
   id          String   @id @default(cuid())
   orderNumber String   @unique
   total       Float    @default(0)
-  status      OrderStatus @default(pending)
-  createdById String
+  status      String   @default("pending") // pending | processing | completed | cancelled
+  createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relaciones
-  createdBy   User @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User? @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   lineItems   OrderLineItem[]
 
   @@index([createdById])
@@ -132,14 +105,14 @@ model Order {
 model OrderLineItem {
   id              String @id @default(cuid())
   orderId         String
-  inventoryItemId String
+  inventoryItemId String?
   quantity        Int
   unitPrice       Float
   createdAt       DateTime @default(now())
 
   // Relaciones
   order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@index([inventoryItemId])
@@ -148,18 +121,11 @@ model OrderLineItem {
 // ============================================
 // RESTOCK - Solicitudes de reabastecimiento
 // ============================================
-enum RestockStatus {
-  pending
-  approved
-  rejected
-  completed
-}
-
 model RestockRequest {
   id                String   @id @default(cuid())
   inventoryItemId   String
   quantityRequested Int
-  status            RestockStatus @default(pending)
+  status            String   @default("pending") // pending | approved | rejected | completed
   createdById       String
   approvedById      String?
   approvedAt        DateTime?
@@ -168,8 +134,8 @@ model RestockRequest {
 
   // Relaciones
   inventoryItem     InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
-  createdBy         User @relation("RestockCreatedBy", fields: [createdById], references: [id])
-  approvedBy        User? @relation("RestockApprovedBy", fields: [approvedById], references: [id])
+  createdBy         User @relation("RestockCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  approvedBy        User? @relation("RestockApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
 
   @@index([inventoryItemId])
   @@index([status])
@@ -179,33 +145,13 @@ model RestockRequest {
 // ============================================
 // AUDITORÍA - Registro de todas las acciones
 // ============================================
-enum AuditAction {
-  CREATE
-  READ
-  UPDATE
-  DELETE
-  LOGIN
-  LOGOUT
-  APPROVE
-  REJECT
-  COMPLETE
-}
-
-enum AuditEntityType {
-  USER
-  INVENTORY_ITEM
-  ORDER
-  RESTOCK_REQUEST
-  TRANSACTION
-}
-
 model AuditLog {
   id          String   @id @default(cuid())
-  action      AuditAction
-  entityType  AuditEntityType
+  action      String   // CREATE | READ | UPDATE | DELETE | LOGIN | LOGOUT | APPROVE | REJECT | COMPLETE
+  entityType  String   // USER | INVENTORY_ITEM | ORDER | RESTOCK_REQUEST | TRANSACTION
   entityId    String
   userId      String
-  changes     Json?
+  changes     String?  // JSON serialized as string
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
@@ -222,20 +168,13 @@ model AuditLog {
 // ============================================
 // TRANSACCIONES - Registro por caja/cajero
 // ============================================
-enum TransactionType {
-  sale
-  refund
-  adjustment
-  payment
-}
-
 model Transaction {
   id          String   @id @default(cuid())
-  type        TransactionType
+  type        String   // sale | refund | adjustment | payment
   userId      String
   amount      Float
   description String?
-  metadata    Json?
+  metadata    String?  // JSON serialized as string
   createdAt   DateTime @default(now())
 
   // Relaciones
