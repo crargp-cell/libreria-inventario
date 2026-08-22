@@ -1,0 +1,262 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS - 4 roles
+// ============================================
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  SUPERVISOR
+  CAJERO
+}
+
+enum UserStatus {
+  active
+  inactive
+  deleted
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  passwordHash String
+  role      UserRole
+  status    UserStatus @default(active)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+
+  // Relaciones
+  createdOrders     Order[]       @relation("OrderCreatedBy")
+  createdRestocks   RestockRequest[] @relation("RestockCreatedBy")
+  approvedRestocks  RestockRequest[] @relation("RestockApprovedBy")
+  auditLogs         AuditLog[]    @relation("AuditLogUser")
+  deletedByUsers    User[]        @relation("DeletedBy")
+  deletedUsers      User[]        @relation("DeletedBy")
+  transactions      Transaction[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+// ============================================
+// CATEGORÍAS DE INVENTARIO
+// ============================================
+model Category {
+  id    String @id @default(cuid())
+  name  String @unique
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  inventoryItems InventoryItem[]
+
+  @@index([name])
+}
+
+// ============================================
+// INVENTARIO - Stock de libros/productos
+// ============================================
+enum StockStatus {
+  in_stock
+  low_stock
+  out_of_stock
+}
+
+model InventoryItem {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  description   String?
+  categoryId    String
+  quantity      Int      @default(0)
+  minStockLevel Int      @default(10)
+  unitPrice     Float
+  supplier      String?
+  status        StockStatus @default(in_stock)
+  lastRestocked DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderLineItems OrderLineItem[]
+  restockRequests RestockRequest[]
+
+  @@index([categoryId])
+  @@index([code])
+  @@index([status])
+}
+
+// ============================================
+// PEDIDOS/ÓRDENES DE VENTA
+// ============================================
+enum OrderStatus {
+  pending
+  processing
+  completed
+  cancelled
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  orderNumber String   @unique
+  total       Float    @default(0)
+  status      OrderStatus @default(pending)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  createdBy   User @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lineItems   OrderLineItem[]
+
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderLineItem {
+  id              String @id @default(cuid())
+  orderId         String
+  inventoryItemId String
+  quantity        Int
+  unitPrice       Float
+  createdAt       DateTime @default(now())
+
+  // Relaciones
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([inventoryItemId])
+}
+
+// ============================================
+// RESTOCK - Solicitudes de reabastecimiento
+// ============================================
+enum RestockStatus {
+  pending
+  approved
+  rejected
+  completed
+}
+
+model RestockRequest {
+  id                String   @id @default(cuid())
+  inventoryItemId   String
+  quantityRequested Int
+  status            RestockStatus @default(pending)
+  createdById       String
+  approvedById      String?
+  approvedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  inventoryItem     InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  createdBy         User @relation("RestockCreatedBy", fields: [createdById], references: [id])
+  approvedBy        User? @relation("RestockApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([status])
+  @@index([createdById])
+}
+
+// ============================================
+// AUDITORÍA - Registro de todas las acciones
+// ============================================
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  COMPLETE
+}
+
+enum AuditEntityType {
+  USER
+  INVENTORY_ITEM
+  ORDER
+  RESTOCK_REQUEST
+  TRANSACTION
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      AuditAction
+  entityType  AuditEntityType
+  entityId    String
+  userId      String
+  changes     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  user        User @relation("AuditLogUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================
+// TRANSACCIONES - Registro por caja/cajero
+// ============================================
+enum TransactionType {
+  sale
+  refund
+  adjustment
+  payment
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  type        TransactionType
+  userId      String
+  amount      Float
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ============================================
+// REPORTES - Métricas y estadísticas
+// ============================================
+model DailyMetric {
+  id              String   @id @default(cuid())
+  date            DateTime
+  totalSales      Float    @default(0)
+  totalOrders     Int      @default(0)
+  lowStockItems   Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@unique([date])
+  @@index([date])
+}
