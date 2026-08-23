@@ -1,9 +1,8 @@
 import { prisma } from './db';
-import { AuditAction, AuditEntityType } from '@prisma/client';
 
 interface AuditLogParams {
-  action: AuditAction;
-  entityType: AuditEntityType;
+  action: string;
+  entityType: string;
   entityId: string;
   userId: string;
   changes?: Record<string, any>;
@@ -43,8 +42,8 @@ export const auditActions = {
   // Usuarios
   userCreated: (userId: string, newUserId: string, changes: any, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.CREATE,
-      entityType: AuditEntityType.USER,
+      action: 'CREATE',
+      entityType: 'USER',
       entityId: newUserId,
       userId,
       changes,
@@ -53,8 +52,8 @@ export const auditActions = {
 
   userDeleted: (userId: string, deletedUserId: string, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.DELETE,
-      entityType: AuditEntityType.USER,
+      action: 'DELETE',
+      entityType: 'USER',
       entityId: deletedUserId,
       userId,
       ipAddress,
@@ -62,8 +61,8 @@ export const auditActions = {
 
   userUpdated: (userId: string, updatedUserId: string, changes: any, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.UPDATE,
-      entityType: AuditEntityType.USER,
+      action: 'UPDATE',
+      entityType: 'USER',
       entityId: updatedUserId,
       userId,
       changes,
@@ -73,8 +72,8 @@ export const auditActions = {
   // Inventario
   inventoryCreated: (userId: string, itemId: string, changes: any, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.CREATE,
-      entityType: AuditEntityType.INVENTORY_ITEM,
+      action: 'CREATE',
+      entityType: 'INVENTORY_ITEM',
       entityId: itemId,
       userId,
       changes,
@@ -83,8 +82,8 @@ export const auditActions = {
 
   inventoryUpdated: (userId: string, itemId: string, changes: any, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.UPDATE,
-      entityType: AuditEntityType.INVENTORY_ITEM,
+      action: 'UPDATE',
+      entityType: 'INVENTORY_ITEM',
       entityId: itemId,
       userId,
       changes,
@@ -94,8 +93,8 @@ export const auditActions = {
   // Órdenes
   orderCreated: (userId: string, orderId: string, changes: any, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.CREATE,
-      entityType: AuditEntityType.ORDER,
+      action: 'CREATE',
+      entityType: 'ORDER',
       entityId: orderId,
       userId,
       changes,
@@ -104,8 +103,8 @@ export const auditActions = {
 
   orderCompleted: (userId: string, orderId: string, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.COMPLETE,
-      entityType: AuditEntityType.ORDER,
+      action: 'COMPLETE',
+      entityType: 'ORDER',
       entityId: orderId,
       userId,
       ipAddress,
@@ -114,8 +113,8 @@ export const auditActions = {
   // Restock
   restockRequested: (userId: string, restockId: string, changes: any, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.CREATE,
-      entityType: AuditEntityType.RESTOCK_REQUEST,
+      action: 'CREATE',
+      entityType: 'RESTOCK_REQUEST',
       entityId: restockId,
       userId,
       changes,
@@ -124,8 +123,8 @@ export const auditActions = {
 
   restockApproved: (userId: string, restockId: string, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.APPROVE,
-      entityType: AuditEntityType.RESTOCK_REQUEST,
+      action: 'APPROVE',
+      entityType: 'RESTOCK_REQUEST',
       entityId: restockId,
       userId,
       ipAddress,
@@ -133,8 +132,8 @@ export const auditActions = {
 
   restockRejected: (userId: string, restockId: string, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.REJECT,
-      entityType: AuditEntityType.RESTOCK_REQUEST,
+      action: 'REJECT',
+      entityType: 'RESTOCK_REQUEST',
       entityId: restockId,
       userId,
       ipAddress,
@@ -143,8 +142,8 @@ export const auditActions = {
   // Transacciones
   transactionCreated: (userId: string, transactionId: string, amount: number, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.CREATE,
-      entityType: AuditEntityType.TRANSACTION,
+      action: 'CREATE',
+      entityType: 'TRANSACTION',
       entityId: transactionId,
       userId,
       changes: { amount },
@@ -154,8 +153,8 @@ export const auditActions = {
   // Login/Logout
   userLogin: (userId: string, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.LOGIN,
-      entityType: AuditEntityType.USER,
+      action: 'LOGIN',
+      entityType: 'USER',
       entityId: userId,
       userId,
       ipAddress,
@@ -163,8 +162,8 @@ export const auditActions = {
 
   userLogout: (userId: string, ipAddress?: string) =>
     logAudit({
-      action: AuditAction.LOGOUT,
-      entityType: AuditEntityType.USER,
+      action: 'LOGOUT',
+      entityType: 'USER',
       entityId: userId,
       userId,
       ipAddress,
