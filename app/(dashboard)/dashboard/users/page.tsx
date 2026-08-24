@@ -22,6 +22,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -77,6 +78,38 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Error creating user:', error);
       alert('Error al crear usuario');
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingUser) return;
+
+    try {
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          ...(formData.password && { password: formData.password }),
+          role: formData.role,
+        }),
+      });
+
+      if (response.ok) {
+        fetchUsers();
+        setEditingUser(null);
+        setFormData({ email: '', name: '', password: '', role: 'cajero' });
+        alert('Usuario actualizado exitosamente');
+      } else {
+        alert('Error al actualizar usuario');
+      }
+    } catch (error) {
+      alert('Error al actualizar usuario');
     }
   };
 
