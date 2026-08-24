@@ -235,6 +235,70 @@ export default function UsersPage() {
         </Card>
       )}
 
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-2xl w-full">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-black">Editar Usuario</h2>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="usuario@ejemplo.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Nombre"
+                  placeholder="Nombre completo"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Contraseña (dejar vacío para no cambiar)"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="cajero">Cajero</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="admin">Admin</option>
+                    <option value="superadmin">Superadmin</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit" variant="primary">
+                  Guardar Cambios
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       {isLoading ? (
         <Card>
           <p className="text-center text-gray-600 py-8">Cargando usuarios...</p>
@@ -264,7 +328,7 @@ export default function UsersPage() {
                       <td className="py-3 px-4 text-sm text-gray-600">
                         {usr.lastLogin ? new Date(usr.lastLogin).toLocaleDateString() : 'Nunca'}
                       </td>
-                      <td className="py-3 px-4 text-sm space-x-2">
+                      <td className="py-3 px-4 text-sm space-x-2 flex flex-wrap gap-2">
                         {usr.status === 'deleted' && currentUser?.role === 'superadmin' && (
                           <Button
                             size="sm"
@@ -275,13 +339,30 @@ export default function UsersPage() {
                           </Button>
                         )}
                         {usr.status !== 'deleted' && usr.id !== currentUser?.id && (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleDeleteUser(usr.id)}
-                          >
-                            Eliminar
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={() => {
+                                setEditingUser(usr);
+                                setFormData({
+                                  email: usr.email,
+                                  name: usr.name,
+                                  password: '',
+                                  role: usr.role,
+                                });
+                              }}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleDeleteUser(usr.id)}
+                            >
+                              Eliminar
+                            </Button>
+                          </>
                         )}
                       </td>
                     </tr>

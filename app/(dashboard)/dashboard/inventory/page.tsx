@@ -34,6 +34,7 @@ export default function InventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'code' | 'price' | 'quantity'>('name');
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -173,9 +174,56 @@ export default function InventoryPage() {
           unitPrice: '',
           supplier: '',
         });
+        alert('Producto agregado exitosamente');
+      } else {
+        alert('Error al agregar producto');
       }
     } catch (error) {
       console.error('Error adding item:', error);
+    }
+  };
+
+  const handleUpdateItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingItem) return;
+
+    try {
+      const response = await fetch(`/api/inventory/${editingItem.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          code: formData.code,
+          name: formData.name,
+          categoryId: formData.categoryId,
+          quantity: parseInt(formData.quantity),
+          minStockLevel: parseInt(formData.minStockLevel),
+          unitPrice: parseFloat(formData.unitPrice),
+          supplier: formData.supplier,
+        }),
+      });
+
+      if (response.ok) {
+        fetchInventory();
+        setEditingItem(null);
+        setFormData({
+          code: '',
+          name: '',
+          categoryId: '',
+          quantity: '',
+          minStockLevel: '',
+          unitPrice: '',
+          supplier: '',
+        });
+        alert('Producto actualizado exitosamente');
+      } else {
+        alert('Error al actualizar producto');
+      }
+    } catch (error) {
+      console.error('Error updating item:', error);
+      alert('Error al actualizar producto');
     }
   };
 
@@ -339,6 +387,94 @@ export default function InventoryPage() {
         </Card>
       )}
 
+      {editingItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-auto">
+          <Card className="max-w-2xl w-full my-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-black">Editar Producto</h2>
+              <button
+                onClick={() => setEditingItem(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateItem} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Código"
+                  placeholder="P001"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Nombre"
+                  placeholder="Nombre del producto"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                    className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                    required
+                  >
+                    <option value="">Seleccionar categoría</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label="Proveedor"
+                  placeholder="Nombre proveedor"
+                  value={formData.supplier}
+                  onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                />
+                <Input
+                  label="Cantidad"
+                  type="number"
+                  placeholder="0"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Stock Mínimo"
+                  type="number"
+                  placeholder="10"
+                  value={formData.minStockLevel}
+                  onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Precio Unitario"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.unitPrice}
+                  onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit" variant="primary">
+                  Guardar Cambios
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setEditingItem(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       {isLoading ? (
         <Card>
           <p className="text-center text-gray-600 py-8">Cargando inventario...</p>
@@ -355,6 +491,7 @@ export default function InventoryPage() {
                   <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Precio</th>
                   <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Estado</th>
                   <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Categoría</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -370,6 +507,26 @@ export default function InventoryPage() {
                       <td className="py-4 px-4 text-sm font-semibold text-[#0066CC]">Bs. {item.unitPrice.toFixed(2)}</td>
                       <td className="py-4 px-4">{getStatusBadge(item.status)}</td>
                       <td className="py-4 px-4 text-sm text-gray-600">{item.category?.name || '-'}</td>
+                      <td className="py-4 px-4 text-sm">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => {
+                            setEditingItem(item);
+                            setFormData({
+                              code: item.code,
+                              name: item.name,
+                              categoryId: item.category?.name || '',
+                              quantity: item.quantity.toString(),
+                              minStockLevel: item.minStockLevel.toString(),
+                              unitPrice: item.unitPrice.toString(),
+                              supplier: '',
+                            });
+                          }}
+                        >
+                          Editar
+                        </Button>
+                      </td>
                     </tr>
                   ))
                 ) : (
