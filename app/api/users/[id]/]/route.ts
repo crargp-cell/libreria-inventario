@@ -4,8 +4,9 @@ import { verifyToken } from '@/lib/auth/jwt';
 import { hashPassword } from '@/lib/auth/password';
 import { auditActions } from '@/lib/audit';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const token = req.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,12 +18,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Solo admin/superadmin pueden ver otros usuarios
-    if (!['admin', 'superadmin'].includes(payload.role) && payload.userId !== params.id) {
+    if (!['admin', 'superadmin'].includes(payload.role) && payload.userId !== id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         email: true,
@@ -48,8 +49,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const token = req.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -74,7 +76,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (role) updateData.role = role;
 
     const user = await prisma.user.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       select: {
         id: true,
@@ -90,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
     await auditActions.userUpdated(
       payload.userId,
-      params.id,
+      id,
       { updated: Object.keys(updateData) },
       ipAddress || undefined
     );
@@ -105,8 +107,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const token = req.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -123,7 +126,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     // No permitir auto-eliminación
-    if (payload.userId === params.id) {
+    if (payload.userId === id) {
       return NextResponse.json(
         { error: 'Cannot delete your own account' },
         { status: 400 }
@@ -132,13 +135,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     // Eliminación lógica (soft delete)
     await prisma.user.update({
-      where: { id: params.id },
+      where: { id },
       data: { status: 'deleted' },
     });
 
     // Log auditoría
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
-    await auditActions.userDeleted(payload.userId, params.id, ipAddress || undefined);
+    await auditActions.userDeleted(payload.userId, id, ipAddress || undefined);
 
     return NextResponse.json({ success: true });
   } catch (error) {

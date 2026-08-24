@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { SignOptions } from 'jsonwebtoken';
 
-const SECRET = process.env.NEXTAUTH_SECRET || 'dev-secret-change-in-production';
+const SECRET: string = process.env.NEXTAUTH_SECRET || 'dev-secret-change-in-production';
 
 export interface JWTPayload {
   userId: string;
@@ -10,8 +11,8 @@ export interface JWTPayload {
   exp?: number;
 }
 
-export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>, expiresIn = '24h'): string {
-  return jwt.sign(payload, SECRET, { expiresIn });
+export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>, expiresIn: string | number = '24h'): string {
+  return jwt.sign(payload, SECRET, { expiresIn } as any);
 }
 
 export function verifyToken(token: string): JWTPayload | null {

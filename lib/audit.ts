@@ -26,7 +26,7 @@ export async function logAudit({
         entityType,
         entityId,
         userId,
-        changes: changes || null,
+        changes: changes ? JSON.stringify(changes) : null,
         ipAddress: ipAddress || null,
         userAgent: userAgent || null,
       },

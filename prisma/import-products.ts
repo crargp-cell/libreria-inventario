@@ -44,7 +44,7 @@ async function importProducts() {
   // Importar nuevos productos
   let productsCreated = 0;
 
-  for (const row of data) {
+  for (const row of data as any[]) {
     try {
       // Mapear columnas del Excel (estructura del archivo de Goma Eva)
       const code = row['CÓDIGO'] || `PROD-${Date.now()}`;
