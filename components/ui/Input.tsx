@@ -13,6 +13,15 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
           {label}
         </label>
       )}
+      <style>{`
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+          -webkit-box-shadow: 0 0 0 30px white inset !important;
+          -webkit-text-fill-color: black !important;
+        }
+      `}</style>
       <input
         className={`w-full px-4 py-2.5 border-2 rounded-lg transition-all duration-200 focus:outline-none text-black ${
           error
