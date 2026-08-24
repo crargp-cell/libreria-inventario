@@ -22,6 +22,7 @@ export default function OrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     if (token) fetchOrders();
@@ -124,7 +125,11 @@ export default function OrdersPage() {
               </thead>
               <tbody>
                 {filteredOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-100 hover:bg-[#E8F0FF]/30">
+                  <tr
+                    key={order.id}
+                    className="border-b border-gray-100 hover:bg-[#E8F0FF]/30 cursor-pointer"
+                    onClick={() => setSelectedOrder(order)}
+                  >
                     <td className="py-4 px-4 text-sm font-semibold text-[#0066CC]">
                       {order.orderNumber}
                     </td>
@@ -155,6 +160,80 @@ export default function OrdersPage() {
         <Card>
           <p className="text-center text-gray-500 py-12">No hay órdenes que coincidan con tu búsqueda</p>
         </Card>
+      )}
+
+      {/* Modal de detalle */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-2xl w-full">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-bold text-black">Detalle de Orden</h2>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Info general */}
+            <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-[#E8F0FF] rounded-lg">
+              <div>
+                <p className="text-xs text-gray-600">Orden #</p>
+                <p className="text-lg font-bold text-[#0066CC]">{selectedOrder.orderNumber}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Estado</p>
+                <Badge variant={selectedOrder.status === 'completed' ? 'success' : 'warning'}>
+                  {selectedOrder.status}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Fecha</p>
+                <p className="text-sm font-medium text-black">
+                  {new Date(selectedOrder.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">Creado por</p>
+                <p className="text-sm font-medium text-black">
+                  {selectedOrder.createdBy?.name || 'Sistema'}
+                </p>
+              </div>
+            </div>
+
+            {/* Items */}
+            <div className="mb-6">
+              <h3 className="font-bold text-black mb-3">Productos</h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {selectedOrder.lineItems.map((item: any, idx: number) => (
+                  <div key={idx} className="p-3 bg-gray-50 rounded-lg flex justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-black">{item.inventoryItem?.name}</p>
+                      <p className="text-xs text-gray-600">{item.quantity} x Bs. {item.unitPrice}</p>
+                    </div>
+                    <p className="font-bold text-[#0066CC]">Bs. {(item.quantity * item.unitPrice).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="p-4 bg-gradient-to-r from-[#E8F0FF] to-white rounded-lg mb-6 border-2 border-[#0066CC]">
+              <div className="flex justify-between">
+                <span className="text-lg font-bold text-[#0066CC]">Total:</span>
+                <span className="text-2xl font-bold text-[#0066CC]">Bs. {selectedOrder.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSelectedOrder(null)}
+              className="w-full px-4 py-2 bg-[#0066CC] text-white font-semibold rounded-lg hover:bg-[#0052A3]"
+            >
+              Cerrar
+            </button>
+          </Card>
+        </div>
       )}
     </div>
   );

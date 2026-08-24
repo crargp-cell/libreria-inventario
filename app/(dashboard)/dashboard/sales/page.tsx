@@ -138,12 +138,9 @@ export default function SalesPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          total: calculateTotal(),
-          status: 'completed',
-          lineItems: cartItems.map((item) => ({
+          items: cartItems.map((item) => ({
             inventoryItemId: item.inventoryItemId,
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
           })),
         }),
       });
