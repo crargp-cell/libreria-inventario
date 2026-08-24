@@ -74,19 +74,24 @@ export async function GET(req: NextRequest) {
     });
 
     // Obtener detalles de productos
-    const topProductsDetails = await Promise.all(
-      topProducts.map(async (item) => {
-        const product = await prisma.inventoryItem.findUnique({
-          where: { id: item.inventoryItemId || '' },
-          select: { id: true, code: true, name: true },
-        });
-        return {
-          ...product,
-          quantity: item._sum.quantity || 0,
-          orders: item._count,
-        };
-      })
-    );
+    const topProductsDetails = (
+      await Promise.all(
+        topProducts.map(async (item) => {
+          const product = await prisma.inventoryItem.findUnique({
+            where: { id: item.inventoryItemId || '' },
+            select: { id: true, code: true, name: true },
+          });
+          if (!product) return null;
+          return {
+            id: product.id,
+            code: product.code,
+            name: product.name,
+            quantity: item._sum.quantity || 0,
+            orders: item._count,
+          };
+        })
+      )
+    ).filter((p) => p !== null);
 
     // Restock requests pendientes
     const pendingRestocks = await prisma.restockRequest.count({
