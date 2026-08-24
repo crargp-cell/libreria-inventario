@@ -192,34 +192,34 @@ export default function InventoryPage() {
     <div>
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold text-[#293685] mb-2">📦 Inventario</h1>
-          <p className="text-gray-600">Gestión y control de productos</p>
+          <h1 className="text-4xl font-bold text-[#0066CC] mb-2">Gestión de Inventario</h1>
+          <p className="text-gray-600">Administra tu catálogo de productos</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} variant="primary">
-          {showForm ? '✕ Cancelar' : '+ Nuevo Producto'}
+          {showForm ? '✕ Cancelar' : '+ Agregar Producto'}
         </Button>
       </div>
 
       {/* Búsqueda y Filtros */}
-      <Card className="mb-6 bg-blue-50 border border-[#293685]">
+      <Card className="mb-6 bg-gradient-to-br from-[#E8F0FF] to-white border border-blue-200">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-[#293685] mb-2">🔍 Buscar Producto</label>
+            <label className="block text-sm font-semibold text-[#0066CC] mb-2">Buscar Producto</label>
             <input
               type="text"
               placeholder="Buscar por código, nombre o categoría..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#293685]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-              <label className="block text-sm font-semibold text-[#293685] mb-1">Categoría</label>
+              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Categoría</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#293685]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="">Todas las categorías</option>
                 {categories.map((cat) => (
@@ -228,11 +228,11 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#293685] mb-1">Estado</label>
+              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Estado</label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#293685]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="">Todos los estados</option>
                 <option value="in_stock">En Stock</option>
@@ -241,11 +241,11 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#293685] mb-1">Ordenar por</label>
+              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Ordenar por</label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#293685]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="name">Nombre</option>
                 <option value="code">Código</option>
@@ -254,8 +254,8 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#293685] mb-1">Resultados</label>
-              <div className="flex items-center justify-center h-10 bg-white border border-gray-300 rounded-lg font-bold text-[#293685]">
+              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Resultados</label>
+              <div className="flex items-center justify-center h-10 bg-white border border-gray-300 rounded-lg font-bold text-[#0066CC]">
                 {filteredItems.length} / {items.length}
               </div>
             </div>
@@ -286,7 +286,7 @@ export default function InventoryPage() {
                 <select
                   value={formData.categoryId}
                   onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#293685]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
                   required
                 >
                   <option value="">Seleccionar categoría</option>
@@ -349,25 +349,25 @@ export default function InventoryPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-[#293685] bg-blue-50">
-                  <th className="text-left py-4 px-4 font-bold text-[#293685]">Código</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#293685]">Producto</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#293685]">Cantidad</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#293685]">Precio</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#293685]">Estado</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#293685]">Categoría</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Código</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Producto</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Cantidad</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Precio</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Estado</th>
+                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Categoría</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredItems.length > 0 ? (
                   filteredItems.map((item, idx) => (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
-                      <td className="py-4 px-4 text-sm font-semibold text-[#293685]">{item.code}</td>
+                      <td className="py-4 px-4 text-sm font-semibold text-[#0066CC]">{item.code}</td>
                       <td className="py-4 px-4 text-sm text-gray-900">{item.name}</td>
                       <td className="py-4 px-4 text-sm font-medium text-gray-900">
                         {item.quantity}
                         {item.quantity < item.minStockLevel && <span className="text-orange-600 ml-2">⚠️ Bajo</span>}
                       </td>
-                      <td className="py-4 px-4 text-sm font-semibold text-[#293685]">Bs. {item.unitPrice.toFixed(2)}</td>
+                      <td className="py-4 px-4 text-sm font-semibold text-[#0066CC]">Bs. {item.unitPrice.toFixed(2)}</td>
                       <td className="py-4 px-4">{getStatusBadge(item.status)}</td>
                       <td className="py-4 px-4 text-sm text-gray-600">{item.category?.name || '-'}</td>
                     </tr>
