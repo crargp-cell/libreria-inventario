@@ -204,22 +204,22 @@ export default function InventoryPage() {
       <Card className="mb-6 bg-gradient-to-br from-[#E8F0FF] to-white border border-blue-200">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-[#0066CC] mb-2">Buscar Producto</label>
+            <label className="block text-sm font-semibold text-black mb-2">Buscar Producto</label>
             <input
               type="text"
               placeholder="Buscar por código, nombre o categoría..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+              className="w-full px-4 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Categoría</label>
+              <label className="block text-sm font-semibold text-black mb-1">Categoría</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="">Todas las categorías</option>
                 {categories.map((cat) => (
@@ -228,11 +228,11 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Estado</label>
+              <label className="block text-sm font-semibold text-black mb-1">Estado</label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="">Todos los estados</option>
                 <option value="in_stock">En Stock</option>
@@ -241,11 +241,11 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Ordenar por</label>
+              <label className="block text-sm font-semibold text-black mb-1">Ordenar por</label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="name">Nombre</option>
                 <option value="code">Código</option>
@@ -254,7 +254,7 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#0066CC] mb-1">Resultados</label>
+              <label className="block text-sm font-semibold text-black mb-1">Resultados</label>
               <div className="flex items-center justify-center h-10 bg-white border border-gray-300 rounded-lg font-bold text-[#0066CC]">
                 {filteredItems.length} / {items.length}
               </div>
@@ -286,7 +286,7 @@ export default function InventoryPage() {
                 <select
                   value={formData.categoryId}
                   onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                  className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
                   required
                 >
                   <option value="">Seleccionar categoría</option>

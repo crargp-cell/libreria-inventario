@@ -168,7 +168,7 @@ export function FormTemplate({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {fields.map((field) => (
             <div key={field.name}>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-black mb-2">
                 {field.label}
                 {field.required && <span className="text-red-500 ml-1">*</span>}
               </label>
@@ -178,7 +178,7 @@ export function FormTemplate({
                   onChange={(e) =>
                     setFormData({ ...formData, [field.name]: e.target.value })
                   }
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 text-black"
                   required={field.required}
                 >
                   <option value="">Seleccionar...</option>
@@ -195,7 +195,7 @@ export function FormTemplate({
                     setFormData({ ...formData, [field.name]: e.target.value })
                   }
                   placeholder={field.placeholder}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 text-black"
                   required={field.required}
                   rows={4}
                 />
@@ -207,7 +207,7 @@ export function FormTemplate({
                     setFormData({ ...formData, [field.name]: e.target.value })
                   }
                   placeholder={field.placeholder}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 text-black"
                   required={field.required}
                 />
               )}
