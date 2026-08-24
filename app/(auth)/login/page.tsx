@@ -108,9 +108,3 @@ export default function LoginPage() {
     </div>
   );
 }
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
