@@ -12,6 +12,9 @@
     "db:import": "node -r tsx prisma/import-products.ts",
     "db:studio": "prisma studio"
   },
+  "prisma": {
+    "seed": "node -r tsx prisma/seed.ts"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.3",
