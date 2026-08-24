@@ -109,10 +109,14 @@ export default function InventoryPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setCategories(data.items || data);
+        const cats = Array.isArray(data) ? data : (data.items || []);
+        setCategories(cats);
+      } else {
+        setCategories([]);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
@@ -125,10 +129,14 @@ export default function InventoryPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setItems(data.items);
+        const items = Array.isArray(data) ? data : (data.items || []);
+        setItems(items);
+      } else {
+        setItems([]);
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
+      setItems([]);
     } finally {
       setIsLoading(false);
     }
