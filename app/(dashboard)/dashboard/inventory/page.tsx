@@ -51,16 +51,22 @@ export default function InventoryPage() {
 
   // Filtrar y buscar items
   useEffect(() => {
+    if (!items || items.length === 0) {
+      setFilteredItems([]);
+      return;
+    }
+
     let results = [...items];
 
     // Búsqueda por texto
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      results = results.filter(item =>
-        item.code.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query) ||
-        item.category?.name.toLowerCase().includes(query)
-      );
+      results = results.filter(item => {
+        const code = item.code?.toLowerCase() || '';
+        const name = item.name?.toLowerCase() || '';
+        const category = item.category?.name?.toLowerCase() || '';
+        return code.includes(query) || name.includes(query) || category.includes(query);
+      });
     }
 
     // Filtrar por categoría
@@ -74,19 +80,23 @@ export default function InventoryPage() {
     }
 
     // Ordenar
-    results.sort((a, b) => {
-      switch (sortBy) {
-        case 'code':
-          return a.code.localeCompare(b.code);
-        case 'price':
-          return a.unitPrice - b.unitPrice;
-        case 'quantity':
-          return a.quantity - b.quantity;
-        case 'name':
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
+    try {
+      results.sort((a, b) => {
+        switch (sortBy) {
+          case 'code':
+            return (a.code || '').localeCompare(b.code || '');
+          case 'price':
+            return (a.unitPrice || 0) - (b.unitPrice || 0);
+          case 'quantity':
+            return (a.quantity || 0) - (b.quantity || 0);
+          case 'name':
+          default:
+            return (a.name || '').localeCompare(b.name || '');
+        }
+      });
+    } catch (error) {
+      console.error('Error sorting:', error);
+    }
 
     setFilteredItems(results);
   }, [items, searchQuery, selectedCategory, selectedStatus, sortBy]);
