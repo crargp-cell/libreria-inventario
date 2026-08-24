@@ -76,7 +76,7 @@ export default function DashboardPage() {
 
           <Card className="border-l-4 border-l-green-500">
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600 mb-1">${stats.sales.totalSales.toFixed(2)}</div>
+              <div className="text-3xl font-bold text-green-600 mb-1">Bs. {stats.sales.totalSales.toFixed(2)}</div>
               <div className="text-sm text-gray-600">Ventas Totales</div>
             </div>
           </Card>

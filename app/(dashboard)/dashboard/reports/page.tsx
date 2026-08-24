@@ -107,7 +107,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card className="border-l-4 border-l-blue-500">
           <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-1">${stats.sales.totalSales.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-blue-600 mb-1">Bs. {stats.sales.totalSales.toFixed(2)}</div>
             <div className="text-sm text-gray-600">Ventas Totales</div>
           </div>
         </Card>
