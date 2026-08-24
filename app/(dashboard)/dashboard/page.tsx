@@ -42,8 +42,8 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-        <p className="text-gray-600">Bienvenido, {user?.name} ({user?.role})</p>
+        <h1 className="text-4xl font-bold text-[#293685] mb-2">📊 Dashboard</h1>
+        <p className="text-gray-600">Bienvenido, <span className="font-semibold text-[#293685]">{user?.name}</span> ({user?.role})</p>
       </div>
 
       {isLoading ? (

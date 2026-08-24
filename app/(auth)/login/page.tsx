@@ -28,11 +28,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-[#293685] to-[#1f2860] flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Librería</h1>
-          <p className="text-gray-600">Sistema de Inventario</p>
+          <h1 className="text-4xl font-bold text-[#293685] mb-2">📚 Librería</h1>
+          <p className="text-gray-600 font-medium">Sistema de Inventario</p>
         </div>
 
         {error && (

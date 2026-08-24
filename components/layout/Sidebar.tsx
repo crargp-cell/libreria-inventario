@@ -30,8 +30,8 @@ export function Sidebar() {
   const filteredItems = navItems.filter((item) => item.roles.includes(user?.role || ''));
 
   return (
-    <aside className="w-64 bg-gray-900 text-white h-screen flex flex-col">
-      <div className="px-6 py-6 border-b border-gray-700">
+    <aside className="w-64 bg-[#293685] text-white h-screen flex flex-col">
+      <div className="px-6 py-6 border-b border-[#1f2860]">
         <h2 className="text-xl font-bold">🏢 Sistema</h2>
       </div>
       <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
@@ -43,8 +43,8 @@ export function Sidebar() {
               href={item.href}
               className={`block px-4 py-3 rounded-lg transition-colors ${
                 isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800'
+                  ? 'bg-white text-[#293685] font-semibold'
+                  : 'text-blue-100 hover:bg-[#1f2860]'
               }`}
             >
               <span className="mr-2">{item.icon}</span>
