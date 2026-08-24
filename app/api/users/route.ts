@@ -31,6 +31,11 @@ export async function GET(req: NextRequest) {
     if (role) where.role = role;
     if (status) where.status = status;
 
+    // Admin no puede ver superadmins
+    if (payload.role === 'admin') {
+      where.role = { not: 'superadmin' };
+    }
+
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,

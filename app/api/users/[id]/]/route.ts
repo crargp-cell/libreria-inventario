@@ -133,6 +133,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       );
     }
 
+    // Admin no puede eliminar superadmin
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (payload.role === 'admin' && targetUser.role === 'superadmin') {
+      return NextResponse.json(
+        { error: 'Cannot delete superadmin' },
+        { status: 403 }
+      );
+    }
+
     // Eliminación lógica (soft delete)
     await prisma.user.update({
       where: { id },
