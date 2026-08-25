@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { code, name, description, categoryId, quantity, minStockLevel, unitPrice, supplier } =
+    const { code, name, description, image, categoryId, quantity, minStockLevel, unitPrice, supplier } =
       await req.json();
 
     if (!code || !name || !categoryId || quantity === undefined || !unitPrice) {
@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
         code,
         name,
         description,
+        image,
         categoryId,
         quantity,
         minStockLevel,

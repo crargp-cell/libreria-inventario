@@ -11,6 +11,8 @@ interface InventoryItem {
   id: string;
   code: string;
   name: string;
+  description?: string;
+  image?: string | null;
   quantity: number;
   minStockLevel: number;
   unitPrice: number;
@@ -43,6 +45,7 @@ export default function InventoryPage() {
     minStockLevel: '',
     unitPrice: '',
     supplier: '',
+    image: '',
   });
 
   useEffect(() => {
@@ -59,14 +62,19 @@ export default function InventoryPage() {
 
     let results = [...items];
 
-    // Búsqueda por texto
+    // Búsqueda por texto - mejorada para búsqueda por palabras (orden independiente)
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase().trim();
+      const searchWords = query.split(/\s+/).filter(word => word.length > 0);
+      
       results = results.filter(item => {
         const code = item.code?.toLowerCase() || '';
         const name = item.name?.toLowerCase() || '';
         const category = item.category?.name?.toLowerCase() || '';
-        return code.includes(query) || name.includes(query) || category.includes(query);
+        const searchableText = `${code} ${name} ${category}`;
+        
+        // Todas las palabras de búsqueda deben estar presentes en el texto combinado
+        return searchWords.every(word => searchableText.includes(word));
       });
     }
 
@@ -156,6 +164,7 @@ export default function InventoryPage() {
         },
         body: JSON.stringify({
           ...formData,
+          image: formData.image || undefined,
           quantity: parseInt(formData.quantity),
           minStockLevel: parseInt(formData.minStockLevel),
           unitPrice: parseFloat(formData.unitPrice),
@@ -173,6 +182,7 @@ export default function InventoryPage() {
           minStockLevel: '',
           unitPrice: '',
           supplier: '',
+          image: '',
         });
         alert('Producto agregado exitosamente');
       } else {
@@ -181,6 +191,22 @@ export default function InventoryPage() {
     } catch (error) {
       console.error('Error adding item:', error);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('La imagen no debe superar los 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData({ ...formData, image: reader.result as string });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdateItem = async (e: React.FormEvent) => {
@@ -198,6 +224,7 @@ export default function InventoryPage() {
           code: formData.code,
           name: formData.name,
           categoryId: formData.categoryId,
+          image: formData.image,
           quantity: parseInt(formData.quantity),
           minStockLevel: parseInt(formData.minStockLevel),
           unitPrice: parseFloat(formData.unitPrice),
@@ -216,6 +243,7 @@ export default function InventoryPage() {
           minStockLevel: '',
           unitPrice: '',
           supplier: '',
+          image: '',
         });
         alert('Producto actualizado exitosamente');
       } else {
@@ -374,6 +402,31 @@ export default function InventoryPage() {
                 onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
                 required
               />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Imagen de Referencia</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                />
+                {formData.image && (
+                  <div className="mt-2">
+                    <img
+                      src={formData.image}
+                      alt="Vista previa"
+                      className="w-20 h-20 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, image: '' })}
+                      className="text-xs text-red-600 mt-1 hover:underline"
+                    >
+                      Quitar imagen
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-3">
               <Button type="submit" variant="primary">
@@ -461,6 +514,31 @@ export default function InventoryPage() {
                   onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
                   required
                 />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Imagen de Referencia</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                  />
+                  {formData.image && (
+                    <div className="mt-2">
+                      <img
+                        src={formData.image}
+                        alt="Vista previa"
+                        className="w-20 h-20 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, image: '' })}
+                        className="text-xs text-red-600 mt-1 hover:underline"
+                      >
+                        Quitar imagen
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-3">
                 <Button type="submit" variant="primary">
@@ -484,21 +562,35 @@ export default function InventoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b-2 border-[#293685] bg-blue-50">
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Código</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Producto</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Cantidad</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Precio</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Estado</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Categoría</th>
-                  <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Acciones</th>
-                </tr>
+                  <tr className="border-b-2 border-[#293685] bg-blue-50">
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Código</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Imagen</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Producto</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Cantidad</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Precio</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Estado</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Categoría</th>
+                    <th className="text-left py-4 px-4 font-bold text-[#0066CC]">Acciones</th>
+                  </tr>
               </thead>
               <tbody>
                 {filteredItems.length > 0 ? (
                   filteredItems.map((item, idx) => (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                       <td className="py-4 px-4 text-sm font-semibold text-[#0066CC]">{item.code}</td>
+                      <td className="py-4 px-4">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-12 h-12 object-cover rounded-lg border border-gray-300"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center text-gray-400 text-xs">
+                            N/A
+                          </div>
+                        )}
+                      </td>
                       <td className="py-4 px-4 text-sm text-gray-900">{item.name}</td>
                       <td className="py-4 px-4 text-sm font-medium text-gray-900">
                         {item.quantity}
@@ -521,6 +613,7 @@ export default function InventoryPage() {
                               minStockLevel: item.minStockLevel.toString(),
                               unitPrice: item.unitPrice.toString(),
                               supplier: '',
+                              image: item.image || '',
                             });
                           }}
                         >
@@ -531,7 +624,7 @@ export default function InventoryPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-gray-500">
+                    <td colSpan={7} className="py-12 text-center text-gray-500">
                       {items.length === 0 ? 'No hay productos en el inventario' : 'No hay resultados para tu búsqueda'}
                     </td>
                   </tr>

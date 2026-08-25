@@ -21,13 +21,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { code, name, description, categoryId, quantity, minStockLevel, unitPrice, supplier } =
+    const { code, name, description, image, categoryId, quantity, minStockLevel, unitPrice, supplier } =
       await req.json();
 
     const updateData: any = {};
     if (code) updateData.code = code;
     if (name) updateData.name = name;
-    if (description) updateData.description = description;
+    if (description !== undefined) updateData.description = description;
+    if (image !== undefined) updateData.image = image;
     if (categoryId) updateData.categoryId = categoryId;
     if (quantity !== undefined) updateData.quantity = quantity;
     if (minStockLevel) updateData.minStockLevel = minStockLevel;

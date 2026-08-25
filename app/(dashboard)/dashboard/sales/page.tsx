@@ -11,6 +11,7 @@ import { IconShoppingCart } from '@/components/icons';
 interface OrderLineItem {
   inventoryItemId: string;
   inventoryItemName: string;
+  image?: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -20,6 +21,7 @@ interface InventoryItem {
   id: string;
   code: string;
   name: string;
+  image?: string | null;
   unitPrice: number;
   quantity: number;
 }
@@ -104,6 +106,7 @@ export default function SalesPage() {
       {
         inventoryItemId: product.id,
         inventoryItemName: product.name,
+        image: product.image,
         quantity: parseInt(quantity),
         unitPrice: product.unitPrice,
         subtotal,
@@ -167,16 +170,16 @@ export default function SalesPage() {
   return (
     <div>
       <div className="mb-8 flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <IconShoppingCart className="w-8 h-8 text-[#0066CC]" />
-            <h1 className="text-4xl font-bold text-gray-900">Punto de Venta</h1>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <IconShoppingCart className="w-8 h-8 text-[#0066CC]" />
+              <h1 className="text-4xl font-bold text-gray-900">Salida de Productos</h1>
+            </div>
+            <p className="text-gray-600">Registra la salida o descuento de productos del inventario</p>
           </div>
-          <p className="text-gray-600">Registra ventas en el local</p>
-        </div>
-        <Button onClick={() => setShowNewOrder(!showNewOrder)} variant="primary">
-          {showNewOrder ? '✕ Cancelar' : '+ Nueva Venta'}
-        </Button>
+          <Button onClick={() => setShowNewOrder(!showNewOrder)} variant="primary">
+            {showNewOrder ? '✕ Cancelar' : '+ Nueva Salida'}
+          </Button>
       </div>
 
       {showNewOrder && (
@@ -197,7 +200,7 @@ export default function SalesPage() {
                   <option value="">Seleccionar producto...</option>
                   {inventory.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.name} - Bs. {item.unitPrice.toFixed(2)} ({item.quantity} disponibles)
+                      {item.image ? '[📷] ' : ''}{item.name} - Bs. {item.unitPrice.toFixed(2)} ({item.quantity} disponibles)
                     </option>
                   ))}
                 </select>
@@ -227,11 +230,20 @@ export default function SalesPage() {
                       key={idx}
                       className="flex justify-between items-center p-3 bg-[#E8F0FF] rounded-lg"
                     >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-black">{item.inventoryItemName}</p>
-                        <p className="text-xs text-gray-600">
-                          {item.quantity} x Bs. {item.unitPrice.toFixed(2)}
-                        </p>
+                      <div className="flex items-center gap-3 flex-1">
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.inventoryItemName}
+                            className="w-10 h-10 object-cover rounded border border-gray-300"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-black">{item.inventoryItemName}</p>
+                          <p className="text-xs text-gray-600">
+                            {item.quantity} x Bs. {item.unitPrice.toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-[#0066CC]">Bs. {item.subtotal.toFixed(2)}</span>
@@ -289,7 +301,7 @@ export default function SalesPage() {
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observaciones sobre la venta..."
+                placeholder="Observaciones sobre la salida de productos..."
                 className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] text-black"
                 rows={3}
               />
@@ -303,7 +315,7 @@ export default function SalesPage() {
                 className="w-full"
                 disabled={cartItems.length === 0}
               >
-                Completar Venta
+                Completar Salida
               </Button>
               <Button
                 onClick={() => {

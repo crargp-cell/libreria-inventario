@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
     roles: ['admin', 'superadmin', 'supervisor', 'cajero'],
   },
   {
-    label: 'Ventas',
+    label: 'Salidas',
     href: '/dashboard/sales',
     icon: <IconShoppingCart />,
     roles: ['cajero', 'supervisor', 'admin', 'superadmin'],
