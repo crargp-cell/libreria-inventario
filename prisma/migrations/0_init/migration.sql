@@ -18,6 +18,7 @@ CREATE TABLE "Category" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'active',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -141,6 +142,9 @@ CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
 
 -- CreateIndex
 CREATE INDEX "Category_name_idx" ON "Category"("name");
+
+-- CreateIndex
+CREATE INDEX "Category_status_idx" ON "Category"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "InventoryItem_code_key" ON "InventoryItem"("code");

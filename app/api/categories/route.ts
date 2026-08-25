@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         description,
+        status: 'active',
       },
     });
 

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { CategoriesModal, CategoryItem } from '@/components/CategoriesModal';
 
 interface InventoryItem {
   id: string;
@@ -17,12 +18,15 @@ interface InventoryItem {
   minStockLevel: number;
   unitPrice: number;
   status: string;
-  category: { name: string };
+  category: { id: string; name: string };
 }
 
 interface Category {
   id: string;
   name: string;
+  description?: string | null;
+  status?: string;
+  _count?: { inventoryItems: number };
 }
 
 export default function InventoryPage() {
@@ -37,6 +41,7 @@ export default function InventoryPage() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'code' | 'price' | 'quantity'>('name');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -118,7 +123,7 @@ export default function InventoryPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        const cats = Array.isArray(data) ? data : (data.items || []);
+        const cats = Array.isArray(data) ? data : (data.categories || data.items || []);
         setCategories(cats);
       } else {
         setCategories([]);
@@ -264,6 +269,10 @@ export default function InventoryPage() {
     return <Badge variant={variantMap[status] || 'default'}>{status}</Badge>;
   };
 
+  const activeCategories = categories.filter(
+    (c) => !c.status || c.status === 'active'
+  );
+
   return (
     <div>
       <div className="mb-8 flex justify-between items-center">
@@ -273,6 +282,9 @@ export default function InventoryPage() {
         </div>
         <Button onClick={() => setShowForm(!showForm)} variant="primary">
           {showForm ? '✕ Cancelar' : '+ Agregar Producto'}
+        </Button>
+        <Button onClick={() => setShowCategoriesModal(true)} variant="secondary">
+          Gestionar Categorías
         </Button>
       </div>
 
@@ -298,7 +310,7 @@ export default function InventoryPage() {
                 className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
               >
                 <option value="">Todas las categorías</option>
-                {categories.map((cat) => (
+                {activeCategories.map((cat) => (
                   <option key={cat.id} value={cat.name}>{cat.name}</option>
                 ))}
               </select>
@@ -366,7 +378,7 @@ export default function InventoryPage() {
                   required
                 >
                   <option value="">Seleccionar categoría</option>
-                  {categories.map((cat) => (
+                  {activeCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
@@ -478,7 +490,7 @@ export default function InventoryPage() {
                     required
                   >
                     <option value="">Seleccionar categoría</option>
-                    {categories.map((cat) => (
+                    {activeCategories.map((cat) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
@@ -608,7 +620,7 @@ export default function InventoryPage() {
                             setFormData({
                               code: item.code,
                               name: item.name,
-                              categoryId: item.category?.name || '',
+                              categoryId: item.category?.id || '',
                               quantity: item.quantity.toString(),
                               minStockLevel: item.minStockLevel.toString(),
                               unitPrice: item.unitPrice.toString(),
@@ -634,6 +646,14 @@ export default function InventoryPage() {
           </div>
         </Card>
       )}
+
+      <CategoriesModal
+        isOpen={showCategoriesModal}
+        onClose={() => setShowCategoriesModal(false)}
+        token={token}
+        categories={categories}
+        onCategoriesChange={fetchCategories}
+      />
     </div>
   );
 }
