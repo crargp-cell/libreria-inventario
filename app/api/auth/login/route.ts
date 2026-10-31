@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyPassword } from '@/lib/auth/password';
+import { verifyPassword, DUMMY_HASH } from '@/lib/auth/password';
+import { isRateLimited, resetRateLimit } from '@/lib/rate-limit';
 import { generateToken } from '@/lib/auth/jwt';
 import { auditActions } from '@/lib/audit';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json();
+    const password = body?.password;
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
 
-    if (!email || !password) {
+    if (!email || typeof password !== 'string' || !password) {
       return NextResponse.json(
         { error: 'Email and password required' },
         { status: 400 }
+      );
+    }
+
+    // Limitar intentos por IP + email (fuerza bruta)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown';
+    const rateKey = `login:${ip}:${email}`;
+    if (isRateLimited(rateKey)) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Try again later.' },
+        { status: 429 }
       );
     }
 
@@ -20,29 +33,18 @@ export async function POST(req: NextRequest) {
       where: { email },
     });
 
-    if (!user) {
+    // Siempre se compara el hash (aunque el usuario no exista) para no revelar emails por tiempo
+    const isValidPassword = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
+
+    // Misma respuesta para usuario inexistente, contraseña errónea o cuenta inactiva
+    if (!user || !isValidPassword || user.status !== 'active') {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    // Verificar si está activo
-    if (user.status !== 'active') {
-      return NextResponse.json(
-        { error: 'User account is not active' },
-        { status: 403 }
-      );
-    }
-
-    // Verificar contraseña
-    const isValidPassword = await verifyPassword(password, user.passwordHash);
-    if (!isValidPassword) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
-    }
+    resetRateLimit(rateKey);
 
     // Generar token
     const token = generateToken({

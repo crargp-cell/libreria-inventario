@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyToken } from '@/lib/auth/jwt';
-import { hashPassword } from '@/lib/auth/password';
+import { hashPassword, validatePasswordPolicy } from '@/lib/auth/password';
 import { auditActions } from '@/lib/audit';
 
 export async function GET(req: NextRequest) {
@@ -103,6 +103,16 @@ export async function POST(req: NextRequest) {
         { error: 'Invalid role' },
         { status: 400 }
       );
+    }
+
+    // Solo un superadmin puede crear admins o superadmins
+    if (['admin', 'superadmin'].includes(role) && payload.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const passwordError = validatePasswordPolicy(password);
+    if (passwordError) {
+      return NextResponse.json({ error: passwordError }, { status: 400 });
     }
 
     // Verificar si usuario ya existe
