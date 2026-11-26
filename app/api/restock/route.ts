@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyToken } from '@/lib/auth/jwt';
+import { verifyTokenFresh } from '@/lib/auth/session';
 import { auditActions } from '@/lib/audit';
+import { pageParams, toInt } from '@/lib/validate';
+import { readJson } from '@/lib/http';
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,15 +12,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
+    // Las solicitudes de reposición son información interna de compras
+    if (!['admin', 'superadmin'].includes(payload.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
-    const skip = parseInt(searchParams.get('skip') || '0');
-    const take = parseInt(searchParams.get('take') || '20');
+    const { skip, take } = pageParams(searchParams, 20);
 
     const where: any = {};
     if (status) where.status = status;
@@ -45,6 +51,9 @@ export async function GET(req: NextRequest) {
       take,
     });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Error fetching restock requests:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -60,7 +69,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -70,11 +79,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { inventoryItemId, quantityRequested } = await req.json();
+    const body = await readJson(req);
+    const inventoryItemId = body.inventoryItemId;
+    const quantityRequested = toInt(body.quantityRequested, 1, 1_000_000);
 
-    if (!inventoryItemId || !quantityRequested || quantityRequested <= 0) {
+    if (typeof inventoryItemId !== 'string' || !inventoryItemId || quantityRequested === null) {
       return NextResponse.json(
-        { error: 'Missing or invalid fields' },
+        { error: 'inventoryItemId and an integer quantityRequested >= 1 are required' },
         { status: 400 }
       );
     }
@@ -116,6 +127,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(restockRequest, { status: 201 });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Error creating restock request:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

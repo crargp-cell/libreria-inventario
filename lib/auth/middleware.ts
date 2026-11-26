@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from './jwt';
+import { verifyTokenFresh } from './session';
 
 export interface AuthRequest extends NextRequest {
   user?: {
@@ -17,7 +17,7 @@ export function withAuth(handler: (req: AuthRequest) => Promise<NextResponse>) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }

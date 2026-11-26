@@ -26,7 +26,7 @@ export function PageTemplate({
       <div className="mb-8 flex justify-between items-start">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            {icon && <div className="w-8 h-8 text-[#0066CC]">{icon}</div>}
+            {icon && <div className="w-8 h-8 text-[#1D4ED8]">{icon}</div>}
             <h1 className="text-4xl font-bold text-gray-900">{title}</h1>
           </div>
           {subtitle && <p className="text-gray-600">{subtitle}</p>}
@@ -69,7 +69,7 @@ export function DataTableTemplate({
       <Card>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-4 border-[#E8F0FF] border-t-[#0066CC] rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-4 border-[#E4ECFF] border-t-[#1D4ED8] rounded-full animate-spin"></div>
             <p className="text-gray-600">Cargando datos...</p>
           </div>
         </div>
@@ -83,11 +83,11 @@ export function DataTableTemplate({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b-2 border-[#0066CC] bg-[#E8F0FF]">
+            <tr className="border-b-2 border-[#1D4ED8] bg-[#E4ECFF]">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`text-left py-4 px-4 font-bold text-[#0066CC] ${col.width || ''}`}
+                  className={`text-left py-4 px-4 font-bold text-[#1D4ED8] ${col.width || ''}`}
                 >
                   {col.label}
                 </th>
@@ -99,7 +99,7 @@ export function DataTableTemplate({
               data.map((row, idx) => (
                 <tr
                   key={idx}
-                  className="border-b border-gray-100 hover:bg-[#E8F0FF]/30 transition-colors cursor-pointer"
+                  className="border-b border-gray-100 hover:bg-[#E4ECFF]/30 transition-colors cursor-pointer"
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => (
@@ -178,7 +178,7 @@ export function FormTemplate({
                   onChange={(e) =>
                     setFormData({ ...formData, [field.name]: e.target.value })
                   }
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 text-black"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/10 text-black"
                   required={field.required}
                 >
                   <option value="">Seleccionar...</option>
@@ -195,7 +195,7 @@ export function FormTemplate({
                     setFormData({ ...formData, [field.name]: e.target.value })
                   }
                   placeholder={field.placeholder}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 text-black"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/10 text-black"
                   required={field.required}
                   rows={4}
                 />
@@ -207,7 +207,7 @@ export function FormTemplate({
                     setFormData({ ...formData, [field.name]: e.target.value })
                   }
                   placeholder={field.placeholder}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10 text-black"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/10 text-black"
                   required={field.required}
                 />
               )}
@@ -218,7 +218,7 @@ export function FormTemplate({
           <button
             type="submit"
             disabled={isLoading}
-            className="px-6 py-2 bg-[#0066CC] text-white font-semibold rounded-lg hover:bg-[#0052A3] disabled:bg-gray-400 transition-colors"
+            className="px-6 py-2 bg-[#1D4ED8] text-white font-semibold rounded-lg hover:bg-[#1E40AF] disabled:bg-gray-400 transition-colors"
           >
             {isLoading ? 'Guardando...' : submitText}
           </button>

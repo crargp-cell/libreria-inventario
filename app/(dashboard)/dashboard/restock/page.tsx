@@ -3,7 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { Card } from '@/components/ui/Card';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
+import { notify } from '@/components/ui/Toast';
+import { label } from '@/lib/labels';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 
@@ -71,9 +74,9 @@ export default function RestockPage() {
         fetchRestocks();
         setShowForm(false);
         setFormData({ inventoryItemId: '', quantityRequested: '' });
-        alert('Solicitud de restock creada');
+        notify('Solicitud de restock creada');
       } else {
-        alert('Error al crear solicitud de restock');
+        notify('Error al crear solicitud de restock');
       }
     } catch (error) {
       console.error('Error creating restock:', error);
@@ -91,7 +94,12 @@ export default function RestockPage() {
 
       if (response.ok) {
         fetchRestocks();
-        alert('Restock aprobado');
+        notify('Restock aprobado');
+      } else if (response.status === 409) {
+        fetchRestocks();
+        notify('Esta solicitud ya fue procesada', 'warning');
+      } else {
+        notify('Error al aprobar la solicitud');
       }
     } catch (error) {
       console.error('Error approving restock:', error);
@@ -109,7 +117,12 @@ export default function RestockPage() {
 
       if (response.ok) {
         fetchRestocks();
-        alert('Restock rechazado');
+        notify('Restock rechazado');
+      } else if (response.status === 409) {
+        fetchRestocks();
+        notify('Esta solicitud ya fue procesada', 'warning');
+      } else {
+        notify('Error al rechazar la solicitud');
       }
     } catch (error) {
       console.error('Error rejecting restock:', error);
@@ -123,18 +136,18 @@ export default function RestockPage() {
       rejected: 'error',
       completed: 'info',
     };
-    return <Badge variant={variantMap[status] || 'default'}>{status}</Badge>;
+    return <Badge variant={variantMap[status] || 'default'}>{label(status)}</Badge>;
   };
 
   return (
     <div>
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestión de Restock</h1>
-          <p className="text-gray-600">Solicitudes de reabastecimiento</p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0B1B4D] mb-1">Entradas al almacén</h1>
+          <p className="text-gray-600">Reabastecimiento del almacén: al aprobar una entrada, el stock aumenta.</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} variant="primary">
-          {showForm ? '✕ Cancelar' : '+ Nueva Solicitud'}
+          {showForm ? 'Cancelar' : '+ Nueva Solicitud'}
         </Button>
       </div>
 
@@ -151,6 +164,7 @@ export default function RestockPage() {
               />
               <Input
                 label="Cantidad Solicitada"
+                min={1}
                 type="number"
                 placeholder="0"
                 value={formData.quantityRequested}
@@ -172,12 +186,12 @@ export default function RestockPage() {
 
       {isLoading ? (
         <Card>
-          <p className="text-center text-gray-600 py-8">Cargando solicitudes...</p>
+          <TableSkeleton label="Cargando solicitudes..." />
         </Card>
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full stack">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Producto</th>
@@ -192,16 +206,16 @@ export default function RestockPage() {
                 {requests.length > 0 ? (
                   requests.map((req) => (
                     <tr key={req.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-900">
+                      <td data-label="Producto" className="py-3 px-4 text-sm text-gray-900">
                         {req.inventoryItem?.name || req.inventoryItemId}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-900">{req.quantityRequested} unidades</td>
-                      <td className="py-3 px-4">{getStatusBadge(req.status)}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{req.createdBy?.name}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td data-label="Cantidad" className="py-3 px-4 text-sm text-gray-900">{req.quantityRequested} unidades</td>
+                      <td data-label="Estado" className="py-3 px-4">{getStatusBadge(req.status)}</td>
+                      <td data-label="Solicitado Por" className="py-3 px-4 text-sm text-gray-600">{req.createdBy?.name}</td>
+                      <td data-label="Fecha" className="py-3 px-4 text-sm text-gray-600">
                         {new Date(req.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-4 text-sm space-x-2">
+                      <td data-label="Acciones" className="py-3 px-4 text-sm space-x-2">
                         {req.status === 'pending' && (
                           <>
                             <Button
@@ -209,14 +223,14 @@ export default function RestockPage() {
                               variant="primary"
                               onClick={() => handleApprove(req.id)}
                             >
-                              ✓ Aprobar
+                              Aprobar
                             </Button>
                             <Button
                               size="sm"
                               variant="danger"
                               onClick={() => handleReject(req.id)}
                             >
-                              ✕ Rechazar
+                              Rechazar
                             </Button>
                           </>
                         )}

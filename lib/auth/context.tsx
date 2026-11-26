@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { homeFor } from './roles';
 
 export interface User {
   id: string;
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Verificar token al montar
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const storedToken = localStorage.getItem('auth_token');
       if (storedToken) {
         setToken(storedToken);
@@ -44,6 +45,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         } catch (error) {
           localStorage.removeItem('auth_token');
+          setToken(null);
+          setIsLoading(false);
+          return;
+        }
+        // El rol y el nombre vigentes salen del servidor (el token puede estar desactualizado).
+        // Un fallo de red o una petición interrumpida NO cierra la sesión: solo un 401.
+        try {
+          const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${storedToken}` } });
+          if (res.ok) {
+            setUser(await res.json());
+          } else if (res.status === 401) {
+            localStorage.removeItem('auth_token');
+            setToken(null);
+            setUser(null);
+          }
+        } catch {
+          // sin conexión: se continúa con los datos del token
         }
       }
       setIsLoading(false);
@@ -73,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(newToken);
       setUser(data.user);
 
-      router.push('/dashboard');
+      router.push(homeFor(data.user?.role));
     } finally {
       setIsLoading(false);
     }

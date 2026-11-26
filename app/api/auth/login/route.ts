@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyPassword, DUMMY_HASH } from '@/lib/auth/password';
 import { isRateLimited, resetRateLimit } from '@/lib/rate-limit';
+import { clientIp, readJson } from '@/lib/http';
 import { generateToken } from '@/lib/auth/jwt';
 import { auditActions } from '@/lib/audit';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await readJson(req);
     const password = body?.password;
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
 
@@ -18,13 +19,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Limitar intentos por IP + email (fuerza bruta)
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown';
-    const rateKey = `login:${ip}:${email}`;
-    if (isRateLimited(rateKey)) {
+    // Fuerza bruta: se limita POR CUENTA (no depende de datos que el atacante controle) y por IP fiable
+    const ip = clientIp(req);
+    const emailKey = `login:email:${email}`;
+    const ipKey = `login:ip:${ip}`;
+    // Sin IP fiable no se limita por IP: todos los usuarios compartirían el mismo contador
+    if (isRateLimited(emailKey, 10) || (ip !== 'unknown' && isRateLimited(ipKey, 40))) {
       return NextResponse.json(
         { error: 'Too many attempts. Try again later.' },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': '900' } }
       );
     }
 
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    resetRateLimit(rateKey);
+    resetRateLimit(emailKey);
 
     // Generar token
     const token = generateToken({
@@ -88,6 +91,9 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Login error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

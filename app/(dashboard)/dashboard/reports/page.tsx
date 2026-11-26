@@ -1,35 +1,68 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth/context';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
+import { KpiCard } from '@/components/ui/KpiCard';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { api } from '@/lib/client';
+import { label } from '@/lib/labels';
+import { IconBarChart, IconShoppingCart, IconClipboard, IconPackage, IconRefresh, IconUsers } from '@/components/icons';
+
+// recharts pesa ~110 KB (gzip): se descarga solo al abrir Reportes, y sin renderizar en el servidor
+const chartLoading = () => <div className="skeleton h-[260px]" aria-hidden="true" />;
+const load = (name: string) =>
+  dynamic(() => import('@/components/charts/ReportCharts').then((m: any) => m[name]), { ssr: false, loading: chartLoading }) as React.ComponentType<any>;
+const DispatchChart = load('DispatchChart');
+const CategoryBarChart = load('CategoryBarChart');
+const StockPieChart = load('StockPieChart');
 
 interface Stats {
-  period: { days: number; startDate: string };
-  inventory: { totalItems: number; lowStockItems: number; outOfStockItems: number };
-  sales: { totalOrders: number; completedOrders: number; totalSales: number; completionRate: number };
-  daily: Record<string, { orders: number; sales: number }>;
-  topProducts: any[];
-  pendingRestocks: number;
+  inventory: { totalItems: number; lowStockItems: number; outOfStockItems: number; productsWithStock: number; units: number; value?: number };
+  requests: { byStatus: Record<string, number>; created: number };
+  dispatches: {
+    count: number;
+    venta: number;
+    reposicion: number;
+    previousUnits: number;
+    daily: Record<string, { venta: number; reposicion: number }>;
+    topProducts: { id: string; code: string; name: string; quantity: number }[];
+    byRequester: { name: string; dispatches: number; units: number }[];
+    byCategory: { name: string; units: number }[];
+  };
+  pendingEntries: number;
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const num = (n: number) => n.toLocaleString('es-BO');
+const pct = (cur: number, prev: number) => (prev === 0 ? (cur > 0 ? null : 0) : ((cur - prev) / prev) * 100);
+// Fecha en hora de Bolivia (UTC-4)
+const localDay = (daysAgo: number) => new Date(Date.now() - 4 * 3600_000 - daysAgo * 86_400_000).toISOString().split('T')[0];
+
+function Ranking({ rows }: { rows: { key: string; title: string; subtitle: string; value: number }[] }) {
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  return (
+    <ol className="space-y-4">
+      {rows.map((r, i) => (
+        <li key={r.key}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E4ECFF] text-sm font-bold text-[#1D4ED8]">{i + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-gray-900">{r.title}</p>
+                <p className="text-xs text-gray-500">{r.subtitle}</p>
+              </div>
+            </div>
+            <span className="shrink-0 text-sm font-semibold text-[#0B1B4D] tabular">{num(r.value)} {r.value === 1 ? 'unidad' : 'unidades'}</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#E4ECFF]">
+            <div className="h-full rounded-full bg-gradient-to-r from-[#1D4ED8] to-[#38BDF8]" style={{ width: `${(r.value / max) * 100}%` }} />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 export default function ReportsPage() {
   const { token } = useAuth();
@@ -38,233 +71,92 @@ export default function ReportsPage() {
   const [days, setDays] = useState(30);
 
   useEffect(() => {
-    fetchStats();
-  }, [token, days]);
-
-  const fetchStats = async () => {
     if (!token) return;
     setIsLoading(true);
-    try {
-      const response = await fetch(`/api/reports/stats?days=${days}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    api<Stats>(token, `/api/reports/stats?days=${days}`)
+      .then(setStats)
+      .catch((error) => console.error('Error fetching stats:', error))
+      .finally(() => setIsLoading(false));
+  }, [token, days]);
+
+  const header = (
+    <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 className="text-2xl sm:text-4xl font-bold text-[#0B1B4D] mb-1">Reportes</h1>
+        <p className="text-gray-600">Existencias, solicitudes y salidas del almacén</p>
+      </div>
+      <select aria-label="Periodo del reporte" value={days} onChange={(e) => setDays(parseInt(e.target.value))}
+        className="min-h-11 px-4 py-2 border-2 border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#1D4ED8]">
+        <option value={7}>Últimos 7 días</option>
+        <option value={30}>Últimos 30 días</option>
+        <option value={90}>Últimos 90 días</option>
+      </select>
+    </div>
+  );
 
   if (isLoading || !stats) {
     return (
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Reportes</h1>
-        <Card>
-          <p className="text-center text-gray-600 py-8">Cargando datos...</p>
-        </Card>
+        {header}
+        <Card><TableSkeleton label="Cargando datos..." rows={5} /></Card>
       </div>
     );
   }
 
-  // Preparar datos para gráficas
-  const dailyData = Object.entries(stats.daily).map(([date, data]) => ({
-    date,
-    ordenes: data.orders,
-    ventas: data.sales,
-  }));
-
+  const d = stats.dispatches;
+  const totalUnits = d.venta + d.reposicion;
+  const daily = Array.from({ length: days }, (_, i) => {
+    const date = localDay(days - 1 - i);
+    return { date, venta: d.daily[date]?.venta ?? 0, reposicion: d.daily[date]?.reposicion ?? 0 };
+  });
+  const inStock = stats.inventory.totalItems - stats.inventory.lowStockItems - stats.inventory.outOfStockItems;
   const stockData = [
-    { name: 'En Stock', value: stats.inventory.totalItems - stats.inventory.lowStockItems - stats.inventory.outOfStockItems, color: '#10b981' },
-    { name: 'Stock Bajo', value: stats.inventory.lowStockItems, color: '#f59e0b' },
-    { name: 'Agotados', value: stats.inventory.outOfStockItems, color: '#ef4444' },
+    { name: 'En Stock', value: inStock, color: '#10B981' },
+    { name: 'Stock Bajo', value: stats.inventory.lowStockItems, color: '#F59E0B' },
+    { name: 'Agotados', value: stats.inventory.outOfStockItems, color: '#F43F5E' },
   ];
+  const empty = <p className="py-10 text-center text-gray-500">Aún no hay despachos en este período</p>;
 
   return (
     <div>
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Reportes</h1>
-          <p className="text-gray-600">Estadísticas y análisis de datos</p>
-        </div>
-        <div>
-          <select
-            value={days}
-            onChange={(e) => setDays(parseInt(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value={7}>Últimos 7 días</option>
-            <option value={30}>Últimos 30 días</option>
-            <option value={90}>Últimos 90 días</option>
-          </select>
-        </div>
+      {header}
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <KpiCard label="Unidades despachadas" value={num(totalUnits)} icon={<IconBarChart />} tone="blue" delta={pct(totalUnits, d.previousUnits)} />
+        <KpiCard label="Salidas a venta" value={num(d.venta)} icon={<IconShoppingCart />} tone="navy" hint="unidades" />
+        <KpiCard label="Salidas a reposición" value={num(d.reposicion)} icon={<IconRefresh />} tone="violet" hint="unidades" />
+        <KpiCard label="Despachos" value={num(d.count)} icon={<IconClipboard />} tone="green" />
+        <KpiCard label="Solicitudes creadas" value={num(stats.requests.created)} icon={<IconUsers />} tone="blue" hint="en el período" />
+        <KpiCard label="Solicitudes pendientes" value={num(stats.requests.byStatus.pending ?? 0)} icon={<IconClipboard />} tone={stats.requests.byStatus.pending ? 'amber' : 'green'} />
+        <KpiCard label="Unidades en almacén" value={num(stats.inventory.units)} icon={<IconPackage />} tone="navy" hint={`${num(stats.inventory.productsWithStock)} productos con stock`} />
+        {stats.inventory.value !== undefined && (
+          <KpiCard label="Valor del inventario" value={`Bs. ${stats.inventory.value.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<IconBarChart />} tone="navy" />
+        )}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card className="border-l-4 border-l-blue-500">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-1">Bs. {stats.sales.totalSales.toFixed(2)}</div>
-            <div className="text-sm text-gray-600">Ventas Totales</div>
-          </div>
-        </Card>
+      <Card title="Salidas por día" className="mb-4 sm:mb-6">{totalUnits > 0 ? <DispatchChart data={daily} /> : empty}</Card>
 
-        <Card className="border-l-4 border-l-green-500">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-600 mb-1">{stats.sales.totalOrders}</div>
-            <div className="text-sm text-gray-600">Total Órdenes</div>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card title="Productos más despachados">
+          {d.topProducts.length ? <Ranking rows={d.topProducts.map((p) => ({ key: p.id, title: p.name, subtitle: p.code, value: p.quantity }))} /> : empty}
         </Card>
-
-        <Card className="border-l-4 border-l-yellow-500">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-yellow-600 mb-1">{stats.inventory.lowStockItems}</div>
-            <div className="text-sm text-gray-600">Stock Bajo</div>
-          </div>
+        <Card title="Abastecimiento por vendedor">
+          {d.byRequester.length ? (
+            <Ranking rows={d.byRequester.map((p) => ({ key: p.name, title: p.name, subtitle: `${p.dispatches} ${p.dispatches === 1 ? 'despacho' : 'despachos'}`, value: p.units }))} />
+          ) : empty}
         </Card>
-
-        <Card className="border-l-4 border-l-orange-500">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-orange-600 mb-1">{stats.pendingRestocks}</div>
-            <div className="text-sm text-gray-600">Restock Pendientes</div>
-          </div>
+        <Card title="Salidas por categoría">{d.byCategory.length ? <CategoryBarChart data={d.byCategory} /> : empty}</Card>
+        <Card title="Estado del inventario"><StockPieChart data={stockData} /></Card>
+        <Card title="Solicitudes por estado" className="lg:col-span-2">
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {['pending', 'approved', 'partially_dispatched', 'dispatched', 'rejected', 'cancelled'].map((s) => (
+              <div key={s} className="rounded-xl bg-[#F3F7FF] px-3 py-2">
+                <dt className="text-xs text-gray-600">{label(s)}</dt>
+                <dd className="text-xl font-bold text-[#0B1B4D] tabular">{num(stats.requests.byStatus[s] ?? 0)}</dd>
+              </div>
+            ))}
+          </dl>
         </Card>
       </div>
-
-      {/* Gráficas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Ventas Diarias */}
-        <Card title="Ventas Diarias">
-          {dailyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={dailyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="ventas" stroke="#3b82f6" name="Ventas ($)" />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-600 py-8">No hay datos</p>
-          )}
-        </Card>
-
-        {/* Órdenes por Día */}
-        <Card title="Órdenes Completadas">
-          {dailyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dailyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="ordenes" fill="#10b981" name="Órdenes" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-600 py-8">No hay datos</p>
-          )}
-        </Card>
-      </div>
-
-      {/* Stock Status Pie Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card title="Estado del Inventario">
-          {stockData.some(d => d.value > 0) ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={stockData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {stockData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-600 py-8">No hay datos</p>
-          )}
-        </Card>
-
-        {/* Top Products */}
-        <Card title="Productos Más Vendidos">
-          {stats.topProducts.length > 0 ? (
-            <div className="space-y-3">
-              {stats.topProducts.map((product, index) => (
-                <div key={product.id} className="flex justify-between items-center pb-3 border-b last:border-b-0">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.code}</div>
-                    </div>
-                  </div>
-                  <Badge variant="success">{product.quantity} unidades</Badge>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-600 py-8">No hay datos</p>
-          )}
-        </Card>
-      </div>
-
-      {/* Resumen */}
-      <Card title="Resumen del Período">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-4">Órdenes</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Total:</span>
-                <span className="font-medium text-gray-900">{stats.sales.totalOrders}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Completadas:</span>
-                <span className="font-medium text-green-600">{stats.sales.completedOrders}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Tasa Completación:</span>
-                <span className="font-medium text-gray-900">{stats.sales.completionRate.toFixed(1)}%</span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-4">Inventario</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Total Items:</span>
-                <span className="font-medium text-gray-900">{stats.inventory.totalItems}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Stock Bajo:</span>
-                <span className="font-medium text-yellow-600">{stats.inventory.lowStockItems}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Agotados:</span>
-                <span className="font-medium text-red-600">{stats.inventory.outOfStockItems}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

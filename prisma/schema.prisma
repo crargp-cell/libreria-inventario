@@ -11,7 +11,7 @@ datasource db {
 }
 
 // ============================================
-// USUARIOS - 4 roles
+// USUARIOS - 5 roles
 // ============================================
 
 model User {
@@ -19,7 +19,7 @@ model User {
   email     String   @unique
   name      String
   passwordHash String
-  role      String   @default("cajero") // SUPERADMIN | ADMIN | SUPERVISOR | CAJERO
+  role      String   @default("vendedor") // superadmin | admin | supervisor | encargado | vendedor
   status    String   @default("active")  // active | inactive | deleted
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -31,6 +31,11 @@ model User {
   approvedRestocks  RestockRequest[] @relation("RestockApprovedBy")
   auditLogs         AuditLog[]    @relation("AuditLogUser")
   transactions      Transaction[]
+  stockRequests      StockRequest[] @relation("RequestRequester")
+  reviewedRequests   StockRequest[] @relation("RequestReviewer")
+  cancelledRequests  StockRequest[] @relation("RequestCanceller")
+  dispatchesMade     Dispatch[]     @relation("DispatchBy")
+  dispatchesReceived Dispatch[]     @relation("DispatchReceiver")
 
   @@index([email])
   @@index([role])
@@ -65,10 +70,18 @@ model InventoryItem {
   description   String?
   image         String?  // Imagen de referencia del producto (base64 o URL)
   categoryId    String
-  quantity      Int      @default(0)
+  quantity      Int      @default(0)    // stock total en piezas (unidad mínima de venta)
+  unitsPerPack  Int      @default(1)    // piezas por caja/paquete (1 = se vende solo suelto)
+  packName      String?                 // Caja | Paquete | Docena | Bolsa ...
   minStockLevel Int      @default(10)
   unitPrice     Float
-  supplier      String?
+  supplier      String?  // marca / fabricante
+  // Atributos del inventario generalizado: agrupan productos equivalentes sin importar la marca
+  genericName   String?  // p. ej. "Bolígrafo"
+  color         String?
+  size          String?
+  model         String?
+  presentation  String?
   status        String   @default("in_stock") // in_stock | low_stock | out_of_stock
   lastRestocked DateTime?
   createdAt     DateTime @default(now())
@@ -78,6 +91,8 @@ model InventoryItem {
   category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderLineItems OrderLineItem[]
   restockRequests RestockRequest[]
+  requestItems    StockRequestItem[]
+  dispatchItems   DispatchItem[]
 
   @@index([categoryId])
   @@index([code])
@@ -201,4 +216,95 @@ model DailyMetric {
 
   @@unique([date])
   @@index([date])
+}
+
+// ============================================
+// SOLICITUDES AL ALMACÉN Y DESPACHOS
+// El stock solo se descuenta al registrar un despacho.
+// ============================================
+model StockRequest {
+  id            String    @id @default(cuid())
+  number        Int       @unique @default(autoincrement())
+  status        String    @default("pending") // pending | approved | partially_dispatched | dispatched | rejected | cancelled
+  requesterId   String
+  note          String?
+  reviewerId    String?
+  reviewNote    String?
+  reviewedAt    DateTime?
+  cancelledById String?
+  cancelledAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  requester   User               @relation("RequestRequester", fields: [requesterId], references: [id])
+  reviewer    User?              @relation("RequestReviewer", fields: [reviewerId], references: [id])
+  cancelledBy User?              @relation("RequestCanceller", fields: [cancelledById], references: [id])
+  items       StockRequestItem[]
+  dispatches  Dispatch[]
+
+  @@index([requesterId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model StockRequestItem {
+  id              String  @id @default(cuid())
+  requestId       String
+  inventoryItemId String
+  // Copia de los datos del producto al momento de pedirlo (trazabilidad)
+  productName     String
+  productCode     String
+  brand           String?
+  details         String? // color, tamaño, modelo, presentación
+  requestedQty    Int
+  approvedQty     Int?
+  dispatchedQty   Int     @default(0)
+
+  request       StockRequest   @relation(fields: [requestId], references: [id])
+  inventoryItem InventoryItem  @relation(fields: [inventoryItemId], references: [id])
+  dispatchItems DispatchItem[]
+
+  @@unique([requestId, inventoryItemId])
+  @@index([inventoryItemId])
+}
+
+model Dispatch {
+  id             String   @id @default(cuid())
+  number         Int      @unique @default(autoincrement())
+  requestId      String
+  type           String   // venta | reposicion
+  dispatchedById String
+  receivedById   String
+  note           String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  request      StockRequest   @relation(fields: [requestId], references: [id])
+  dispatchedBy User           @relation("DispatchBy", fields: [dispatchedById], references: [id])
+  receivedBy   User           @relation("DispatchReceiver", fields: [receivedById], references: [id])
+  items        DispatchItem[]
+
+  @@index([requestId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([dispatchedById])
+  @@index([receivedById])
+}
+
+model DispatchItem {
+  id              String @id @default(cuid())
+  dispatchId      String
+  requestItemId   String
+  inventoryItemId String
+  quantity        Int
+  stockBefore     Int
+  stockAfter      Int
+
+  dispatch      Dispatch         @relation(fields: [dispatchId], references: [id])
+  requestItem   StockRequestItem @relation(fields: [requestItemId], references: [id])
+  inventoryItem InventoryItem    @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([dispatchId])
+  @@index([requestItemId])
+  @@index([inventoryItemId])
 }

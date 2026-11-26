@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-audit/
 /out/
 
 # production
@@ -43,3 +44,13 @@ next-env.d.ts
 # prisma local sqlite dev db
 prisma/**/*.db
 prisma/prisma/
+
+# respaldos locales (contienen datos y hashes)
+/backups/
+
+# datos del negocio y temporales: no se suben al repositorio
+/PRODUCTOS.xlsx
+/INVENTARIO LIDER*.xlsx
+/docs/*.csv
+.~lock.*
+/.claude/

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyToken } from '@/lib/auth/jwt';
+import { verifyTokenFresh } from '@/lib/auth/session';
+import { toText } from '@/lib/validate';
+import { readJson } from '@/lib/http';
 
 export async function PATCH(
   req: NextRequest,
@@ -13,7 +15,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -23,20 +25,42 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, description, status } = await req.json();
-
+    const body = await readJson(req);
     const updateData: any = {};
-    if (name) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (status) updateData.status = status;
+    if (body.name !== undefined) {
+      const v = toText(body.name, 80);
+      if (!v) return NextResponse.json({ error: 'Invalid name' }, { status: 400 });
+      updateData.name = v;
+    }
+    if (body.description !== undefined) {
+      const v = body.description ? toText(body.description, 300) : null;
+      if (body.description && !v) return NextResponse.json({ error: 'Invalid description' }, { status: 400 });
+      updateData.description = v;
+    }
+    if (body.status !== undefined) {
+      if (!['active', 'inactive'].includes(body.status)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
+      updateData.status = body.status;
+    }
 
-    const category = await prisma.category.update({
-      where: { id },
-      data: updateData,
-    });
+    let category;
+    try {
+      category = await prisma.category.update({
+        where: { id },
+        data: updateData,
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002') return NextResponse.json({ error: 'Category already exists' }, { status: 409 });
+      if (e?.code === 'P2025') return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+      throw e;
+    }
 
     return NextResponse.json(category);
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Error updating category:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

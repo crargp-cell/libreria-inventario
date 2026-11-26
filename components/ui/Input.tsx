@@ -1,37 +1,37 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
 
-export function Input({ label, error, className = '', ...props }: InputProps) {
+export function Input({ label, error, className = '', id, ...props }: InputProps) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+  const errorId = `${inputId}-error`;
+
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-semibold text-black mb-2">
+        <label htmlFor={inputId} className="block text-sm font-semibold text-gray-900 mb-1.5">
           {label}
         </label>
       )}
-      <style>{`
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus,
-        input:-webkit-autofill:active {
-          -webkit-box-shadow: 0 0 0 30px white inset !important;
-          -webkit-text-fill-color: black !important;
-        }
-      `}</style>
       <input
-        className={`w-full px-4 py-2.5 border-2 rounded-lg transition-all duration-200 focus:outline-none text-black ${
+        id={inputId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`w-full px-4 py-2.5 min-h-11 border-2 rounded-lg bg-white text-gray-900 transition-[border-color,box-shadow] duration-150 ease-[var(--ease-out)] focus:outline-none placeholder:text-gray-500 disabled:bg-gray-100 disabled:text-gray-500 ${
           error
-            ? 'border-red-500 focus:ring-2 focus:ring-red-200'
-            : 'border-gray-300 focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/10'
-        } ${className} placeholder:text-gray-700 placeholder:font-medium`}
+            ? 'border-red-500 focus:ring-4 focus:ring-red-100'
+            : 'border-gray-300 hover:border-gray-400 focus:border-[#1D4ED8] focus:ring-4 focus:ring-[#1D4ED8]/15'
+        } ${className}`}
         {...props}
       />
       {error && (
-        <p className="text-red-600 text-sm mt-2 font-medium">{error}</p>
+        <p id={errorId} role="alert" className="text-red-600 text-sm mt-1.5 font-medium anim-fade-in">
+          {error}
+        </p>
       )}
     </div>
   );

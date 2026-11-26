@@ -10,6 +10,15 @@ interface AuditLogParams {
   userAgent?: string;
 }
 
+// Todo lo que llega de cabeceras lo controla el cliente: se valida y se acota antes de guardarlo
+const IP_RE = /^[0-9a-fA-F:.]{3,45}$/;
+function safeIp(ip?: string) {
+  const first = ip?.split(',').pop()?.trim(); // la última entrada la añade el proxy más cercano
+  return first && IP_RE.test(first) ? first : null;
+}
+// eslint-disable-next-line no-control-regex
+const safeText = (v: string | undefined, max: number) => (v ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, max) : null);
+
 export async function logAudit({
   action,
   entityType,
@@ -26,9 +35,9 @@ export async function logAudit({
         entityType,
         entityId,
         userId,
-        changes: changes ? JSON.stringify(changes) : null,
-        ipAddress: ipAddress || null,
-        userAgent: userAgent || null,
+        changes: changes ? JSON.stringify(changes).slice(0, 2000) : null,
+        ipAddress: safeIp(ipAddress),
+        userAgent: safeText(userAgent, 200),
       },
     });
   } catch (error) {

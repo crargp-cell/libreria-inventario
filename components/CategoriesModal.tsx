@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { notify } from '@/components/ui/Toast';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -121,11 +122,11 @@ export function CategoriesModal({
       if (response.ok) {
         onCategoriesChange();
       } else {
-        alert('Error al cambiar el estado de la categoría');
+        notify('Error al cambiar el estado de la categoría');
       }
     } catch (err) {
       console.error(err);
-      alert('Error al cambiar el estado de la categoría');
+      notify('Error al cambiar el estado de la categoría');
     }
   };
 
@@ -136,8 +137,8 @@ export function CategoriesModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-auto">
-      <Card className="max-w-2xl w-full my-8">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 bg-gray-900/50 backdrop-blur-[2px] flex items-start sm:items-center justify-center p-3 sm:p-4 z-50 overflow-auto overscroll-contain anim-fade-in">
+      <Card className="max-w-2xl w-full my-4 sm:my-8 anim-scale-in">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-black">Gestión de Categorías</h2>
           <button
@@ -147,8 +148,8 @@ export function CategoriesModal({
             }}
             className="text-gray-500 hover:text-gray-700 text-2xl"
           >
-            ✕
-          </button>
+<svg viewBox="0 0 24 24" className="size-5 mx-auto" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+</button>
         </div>
 
         {/* Formulario crear / editar */}
@@ -168,7 +169,7 @@ export function CategoriesModal({
                 placeholder="Descripción (opcional)"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066CC]"
+                className="w-full px-3 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
               />
             </div>
           </div>

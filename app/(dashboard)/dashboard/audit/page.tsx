@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { Card } from '@/components/ui/Card';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 
@@ -87,8 +88,8 @@ export default function AuditPage() {
       <Card className="mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Acción</label>
-            <select
+            <label htmlFor="audit-f16" className="block text-sm font-medium text-gray-700 mb-1">Acción</label>
+            <select id="audit-f16"
               value={filters.action}
               onChange={(e) => setFilters({ ...filters, action: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -103,8 +104,8 @@ export default function AuditPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Entidad</label>
-            <select
+            <label htmlFor="audit-f17" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Entidad</label>
+            <select id="audit-f17"
               value={filters.entityType}
               onChange={(e) => setFilters({ ...filters, entityType: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -130,12 +131,12 @@ export default function AuditPage() {
 
       {isLoading ? (
         <Card>
-          <p className="text-center text-gray-600 py-8">Cargando registros...</p>
+          <TableSkeleton label="Cargando registros..." />
         </Card>
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full stack">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Acción</th>
@@ -149,20 +150,20 @@ export default function AuditPage() {
                 {logs.length > 0 ? (
                   logs.map((log) => (
                     <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">
+                      <td data-label="Acción" className="py-3 px-4">
                         <Badge variant={getActionColor(log.action) as any}>{log.action}</Badge>
                       </td>
-                      <td className="py-3 px-4">
+                      <td data-label="Entidad" className="py-3 px-4">
                         <div>
                           <Badge variant={getEntityColor(log.entityType) as any}>{log.entityType}</Badge>
                           <div className="text-xs text-gray-500 mt-1">{log.entityId.slice(0, 8)}</div>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-sm">
+                      <td data-label="Usuario" className="py-3 px-4 text-sm">
                         <div className="font-medium text-gray-900">{log.user.name}</div>
                         <div className="text-xs text-gray-500">{log.user.email}</div>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">
+                      <td data-label="Cambios" className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">
                         {log.changes ? (
                           <details className="cursor-pointer">
                             <summary className="text-blue-600">Ver cambios</summary>
@@ -174,7 +175,7 @@ export default function AuditPage() {
                           '-'
                         )}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td data-label="Fecha" className="py-3 px-4 text-sm text-gray-600">
                         <div>{new Date(log.createdAt).toLocaleDateString()}</div>
                         <div className="text-xs">{new Date(log.createdAt).toLocaleTimeString()}</div>
                       </td>

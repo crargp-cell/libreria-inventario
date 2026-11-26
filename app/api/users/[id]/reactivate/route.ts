@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyToken } from '@/lib/auth/jwt';
+import { verifyTokenFresh, invalidateUserSession } from '@/lib/auth/session';
 import { auditActions } from '@/lib/audit';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -33,6 +33,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
+    invalidateUserSession(id);
+
     // Log auditoría
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
     await auditActions.userUpdated(
@@ -44,6 +46,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ success: true, user });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Error reactivating user:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

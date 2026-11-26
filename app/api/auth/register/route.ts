@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { hashPassword, validatePasswordPolicy } from '@/lib/auth/password';
-import { verifyToken } from '@/lib/auth/jwt';
+import { verifyTokenFresh } from '@/lib/auth/session';
 import { auditActions } from '@/lib/audit';
+import { readJson } from '@/lib/http';
+import { toEmail, toText } from '@/lib/validate';
 
-const VALID_ROLES = ['cajero', 'supervisor', 'admin', 'superadmin'];
+const VALID_ROLES = ['vendedor', 'encargado', 'supervisor', 'admin', 'superadmin'];
 
 export async function POST(req: NextRequest) {
   try {
     // El registro ya no es público: antes cualquiera podía crearse un usuario con rol superadmin.
     const token = req.headers.get('authorization')?.replace('Bearer ', '');
-    const payload = token ? verifyToken(token) : null;
+    const payload = token ? await verifyTokenFresh(token) : null;
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -18,11 +20,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { name, password, role = 'cajero' } = body;
-    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const body = await readJson(req);
+    const { password, role = 'vendedor' } = body;
+    const email = toEmail(body.email);
+    const name = toText(body.name, 100);
 
-    if (!email || !name || !password) {
+    if (!email || !name || typeof password !== 'string' || !password) {
       return NextResponse.json(
         { error: 'Email, name, and password required' },
         { status: 400 }
@@ -90,6 +93,9 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Register error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

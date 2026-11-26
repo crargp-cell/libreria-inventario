@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "cambios": "node scripts/cambios.mjs",
+    "test:almacen": "node scripts/pruebas-almacen.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "node -r tsx prisma/seed.ts",
     "db:import": "node -r tsx prisma/import-products.ts",
+    "db:import-productos": "node -r tsx prisma/import-productos.ts",
+    "db:import-lider": "node -r tsx prisma/import-inventario-lider.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

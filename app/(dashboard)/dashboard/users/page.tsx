@@ -3,7 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { Card } from '@/components/ui/Card';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
+import { notify } from '@/components/ui/Toast';
+import { label } from '@/lib/labels';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 
@@ -27,7 +30,7 @@ export default function UsersPage() {
     email: '',
     name: '',
     password: '',
-    role: 'cajero',
+    role: 'vendedor',
   });
 
   useEffect(() => {
@@ -69,15 +72,15 @@ export default function UsersPage() {
       if (response.ok) {
         fetchUsers();
         setShowForm(false);
-        setFormData({ email: '', name: '', password: '', role: 'cajero' });
-        alert('Usuario creado exitosamente');
+        setFormData({ email: '', name: '', password: '', role: 'vendedor' });
+        notify('Usuario creado exitosamente');
       } else {
         const error = await response.json();
-        alert(`Error: ${error.error}`);
+        notify(`Error: ${error.error}`);
       }
     } catch (error) {
       console.error('Error creating user:', error);
-      alert('Error al crear usuario');
+      notify('Error al crear usuario');
     }
   };
 
@@ -103,13 +106,13 @@ export default function UsersPage() {
       if (response.ok) {
         fetchUsers();
         setEditingUser(null);
-        setFormData({ email: '', name: '', password: '', role: 'cajero' });
-        alert('Usuario actualizado exitosamente');
+        setFormData({ email: '', name: '', password: '', role: 'vendedor' });
+        notify('Usuario actualizado exitosamente');
       } else {
-        alert('Error al actualizar usuario');
+        notify('Error al actualizar usuario');
       }
     } catch (error) {
-      alert('Error al actualizar usuario');
+      notify('Error al actualizar usuario');
     }
   };
 
@@ -124,7 +127,7 @@ export default function UsersPage() {
 
       if (response.ok) {
         fetchUsers();
-        alert('Usuario eliminado');
+        notify('Usuario eliminado');
       }
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -142,9 +145,9 @@ export default function UsersPage() {
 
       if (response.ok) {
         fetchUsers();
-        alert('Usuario reactivado');
+        notify('Usuario reactivado');
       } else {
-        alert('Solo superadmin puede reactivar usuarios');
+        notify('Solo superadmin puede reactivar usuarios');
       }
     } catch (error) {
       console.error('Error reactivating user:', error);
@@ -156,9 +159,10 @@ export default function UsersPage() {
       superadmin: 'error',
       admin: 'warning',
       supervisor: 'info',
-      cajero: 'default',
+      encargado: 'info',
+      vendedor: 'default',
     };
-    return <Badge variant={variantMap[role] || 'default'}>{role}</Badge>;
+    return <Badge variant={variantMap[role] || 'default'}>{label(role)}</Badge>;
   };
 
   const getStatusBadge = (status: string) => {
@@ -167,18 +171,18 @@ export default function UsersPage() {
       inactive: 'warning',
       deleted: 'error',
     };
-    return <Badge variant={variantMap[status] || 'default'}>{status}</Badge>;
+    return <Badge variant={variantMap[status] || 'default'}>{label(status)}</Badge>;
   };
 
   return (
     <div>
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestión de Usuarios</h1>
           <p className="text-gray-600">Administrar usuarios del sistema</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} variant="primary">
-          {showForm ? '✕ Cancelar' : '+ Nuevo Usuario'}
+          {showForm ? 'Cancelar' : '+ Nuevo Usuario'}
         </Button>
       </div>
 
@@ -210,13 +214,14 @@ export default function UsersPage() {
                 required
               />
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                <select
+                <label htmlFor="users-f14" className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                <select id="users-f14"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="cajero">Cajero</option>
+                  <option value="vendedor">Vendedor</option>
+                  <option value="encargado">Encargado de almacén</option>
                   <option value="supervisor">Supervisor</option>
                   <option value="admin">Admin</option>
                   <option value="superadmin">Superadmin</option>
@@ -236,16 +241,16 @@ export default function UsersPage() {
       )}
 
       {editingUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-2xl w-full">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 bg-gray-900/50 backdrop-blur-[2px] flex items-start sm:items-center justify-center p-3 sm:p-4 z-50 overflow-auto overscroll-contain anim-fade-in">
+          <Card className="max-w-2xl w-full my-4 sm:my-8 anim-scale-in">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-black">Editar Usuario</h2>
               <button
-                onClick={() => setEditingUser(null)}
+                type="button" aria-label="Cerrar" onClick={() => setEditingUser(null)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
               >
-                ✕
-              </button>
+<svg viewBox="0 0 24 24" className="size-5 mx-auto" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+</button>
             </div>
 
             <form onSubmit={handleUpdateUser} className="space-y-4">
@@ -273,14 +278,15 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                  <select
+                  <label htmlFor="users-f15" className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                  <select id="users-f15"
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="cajero">Cajero</option>
-                    <option value="supervisor">Supervisor</option>
+                    <option value="vendedor">Vendedor</option>
+                    <option value="encargado">Encargado de almacén</option>
+                  <option value="supervisor">Supervisor</option>
                     <option value="admin">Admin</option>
                     <option value="superadmin">Superadmin</option>
                   </select>
@@ -301,12 +307,12 @@ export default function UsersPage() {
 
       {isLoading ? (
         <Card>
-          <p className="text-center text-gray-600 py-8">Cargando usuarios...</p>
+          <TableSkeleton label="Cargando usuarios..." />
         </Card>
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full stack">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Email</th>
@@ -321,14 +327,14 @@ export default function UsersPage() {
                 {users.length > 0 ? (
                   users.map((usr) => (
                     <tr key={usr.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-900">{usr.email}</td>
-                      <td className="py-3 px-4 text-sm text-gray-900">{usr.name}</td>
-                      <td className="py-3 px-4">{getRoleBadge(usr.role)}</td>
-                      <td className="py-3 px-4">{getStatusBadge(usr.status)}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td data-label="Email" className="py-3 px-4 text-sm text-gray-900">{usr.email}</td>
+                      <td data-label="Nombre" className="py-3 px-4 text-sm text-gray-900">{usr.name}</td>
+                      <td data-label="Rol" className="py-3 px-4">{getRoleBadge(usr.role)}</td>
+                      <td data-label="Estado" className="py-3 px-4">{getStatusBadge(usr.status)}</td>
+                      <td data-label="Último Login" className="py-3 px-4 text-sm text-gray-600">
                         {usr.lastLogin ? new Date(usr.lastLogin).toLocaleDateString() : 'Nunca'}
                       </td>
-                      <td className="py-3 px-4 text-sm space-x-2 flex flex-wrap gap-2">
+                      <td data-label="Acciones" className="py-3 px-4 text-sm space-x-2 flex flex-wrap gap-2">
                         {usr.status === 'deleted' && currentUser?.role === 'superadmin' && (
                           <Button
                             size="sm"

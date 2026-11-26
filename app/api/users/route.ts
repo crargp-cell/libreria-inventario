@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyToken } from '@/lib/auth/jwt';
+import { verifyTokenFresh } from '@/lib/auth/session';
 import { hashPassword, validatePasswordPolicy } from '@/lib/auth/password';
 import { auditActions } from '@/lib/audit';
+import { pageParams, toEmail, toText } from '@/lib/validate';
+import { readJson } from '@/lib/http';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -24,8 +26,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const role = searchParams.get('role');
     const status = searchParams.get('status');
-    const skip = parseInt(searchParams.get('skip') || '0');
-    const take = parseInt(searchParams.get('take') || '20');
+    const { skip, take } = pageParams(searchParams, 20);
 
     const where: any = {};
     if (role) where.role = role;
@@ -62,6 +63,9 @@ export async function GET(req: NextRequest) {
       take,
     });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Error fetching users:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -77,7 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyTokenFresh(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -87,9 +91,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { email, name, password, role = 'cajero' } = await req.json();
+    const body = await readJson(req);
+    const { password, role = 'vendedor' } = body;
+    const email = toEmail(body.email);
+    const name = toText(body.name, 100);
 
-    if (!email || !name || !password) {
+    if (!email || !name || typeof password !== 'string' || !password) {
       return NextResponse.json(
         { error: 'Email, name, and password required' },
         { status: 400 }
@@ -97,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validar rol
-    const validRoles = ['cajero', 'supervisor', 'admin', 'superadmin'];
+    const validRoles = ['vendedor', 'encargado', 'supervisor', 'admin', 'superadmin'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role' },
@@ -160,6 +167,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     console.error('Error creating user:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -53,17 +53,24 @@ async function main() {
       status: 'active',
     },
     {
-      email: 'cajero1@example.com',
-      name: 'Cajero 1',
+      email: 'almacen@example.com',
+      name: 'Encargado de Almacén',
       passwordHash: await bcrypt.hash('password123', 10),
-      role: 'cajero',
+      role: 'encargado',
       status: 'active',
     },
     {
-      email: 'cajero2@example.com',
-      name: 'Cajero 2',
+      email: 'vendedor1@example.com',
+      name: 'Vendedor 1',
       passwordHash: await bcrypt.hash('password123', 10),
-      role: 'cajero',
+      role: 'vendedor',
+      status: 'active',
+    },
+    {
+      email: 'vendedor2@example.com',
+      name: 'Vendedor 2',
+      passwordHash: await bcrypt.hash('password123', 10),
+      role: 'vendedor',
       status: 'active',
     },
   ];
@@ -199,8 +206,9 @@ async function main() {
   console.log('\n📋 Credenciales de prueba:');
   console.log('  Superadmin: superadmin@example.com / password123');
   console.log('  Admin: admin@example.com / password123');
+  console.log('  Encargado de almacén: almacen@example.com / password123');
   console.log('  Supervisor: supervisor@example.com / password123');
-  console.log('  Cajero: cajero1@example.com / password123');
+  console.log('  Vendedor: vendedor1@example.com / password123');
 }
 
 main()
