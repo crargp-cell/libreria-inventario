@@ -68,43 +68,50 @@ const optionalNote = (value: unknown) => {
   return note;
 };
 
-export async function createRequest(userId: string, body: any, ip: string) {
-  if (!Array.isArray(body.items) || body.items.length === 0 || body.items.length > 100) {
+/** Valida la lista de productos y devuelve las líneas con la descripción vigente de cada uno. */
+async function productLines(items: any) {
+  if (!Array.isArray(items) || items.length === 0 || items.length > 100) {
     throw new HttpError(400, 'La solicitud debe tener entre 1 y 100 productos');
   }
   const wanted = new Map<string, number>();
-  for (const line of body.items) {
+  for (const line of items) {
     const quantity = toInt(line?.quantity, 1, 100_000);
     if (typeof line?.inventoryItemId !== 'string' || quantity === null) {
       throw new HttpError(400, 'Cada producto necesita una cantidad entera de al menos 1');
     }
     wanted.set(line.inventoryItemId, (wanted.get(line.inventoryItemId) || 0) + quantity);
   }
-  const note = optionalNote(body.note);
   const products = await prisma.inventoryItem.findMany({
     where: { id: { in: [...wanted.keys()] } },
     select: { id: true, name: true, code: true, supplier: true, color: true, size: true, model: true, presentation: true },
   });
   if (products.length !== wanted.size) throw new HttpError(404, 'Algunos productos no existen');
 
+  return products.map((p) => ({
+    inventoryItemId: p.id,
+    productName: p.name,
+    productCode: p.code,
+    brand: p.supplier,
+    details: detailsText(p) || null,
+    requestedQty: wanted.get(p.id)!,
+  }));
+}
+
+/** Con `ownOrder` (quien puede autorizar) la orden nace aprobada y queda pendiente de completar. */
+export async function createRequest(userId: string, body: any, ip: string, ownOrder = false) {
+  const note = optionalNote(body.note);
+  const lines = await productLines(body.items);
+
   // Crear la solicitud NO modifica existencias
   const created = await prisma.stockRequest.create({
     data: {
       requesterId: userId,
       note,
-      items: {
-        create: products.map((p) => ({
-          inventoryItemId: p.id,
-          productName: p.name,
-          productCode: p.code,
-          brand: p.supplier,
-          details: detailsText(p) || null,
-          requestedQty: wanted.get(p.id)!,
-        })),
-      },
+      ...(ownOrder ? { status: 'approved', reviewerId: userId, reviewedAt: new Date() } : {}),
+      items: { create: lines.map((l) => ({ ...l, ...(ownOrder ? { approvedQty: l.requestedQty } : {}) })) },
     },
   });
-  await logAudit({ action: 'CREATE', entityType: 'STOCK_REQUEST', entityId: created.id, userId, changes: { number: created.number, items: wanted.size }, ipAddress: ip });
+  await logAudit({ action: 'CREATE', entityType: 'STOCK_REQUEST', entityId: created.id, userId, changes: { number: created.number, items: lines.length, ownOrder }, ipAddress: ip });
   return created;
 }
 
@@ -174,16 +181,114 @@ export async function cancelRequest(id: string, viewer: { userId: string; role: 
   await logAudit({ action: 'CANCEL', entityType: 'STOCK_REQUEST', entityId: id, userId: viewer.userId, ipAddress: ip });
 }
 
-/**
- * Registra un despacho (total o parcial). Es el ÚNICO punto del flujo que descuenta existencias.
- * La clave de idempotencia evita registrar dos veces la misma operación (doble clic, reintentos).
- */
-export async function dispatchRequest(id: string, userId: string, body: any, ip: string) {
+/** Datos comunes de toda salida: tipo, clave de la operación y observación. */
+function dispatchData(body: any) {
   const type = body.type;
   if (!DISPATCH_TYPES.includes(type)) throw new HttpError(400, 'Elige el tipo de salida: venta o reposición');
   const key = body.idempotencyKey;
   if (typeof key !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(key)) throw new HttpError(400, 'Falta la clave de la operación');
-  const note = optionalNote(body.note);
+  return { type: type as string, key, note: optionalNote(body.note) };
+}
+
+/** Es el ÚNICO punto del sistema que descuenta existencias por una salida. */
+async function takeFromStock(
+  tx: Prisma.TransactionClient,
+  selected: { item: { id: string; inventoryItemId: string; productName: string }; quantity: number }[]
+) {
+  // Orden estable al descontar: evita interbloqueos entre despachos simultáneos
+  selected.sort((a, b) => a.item.inventoryItemId.localeCompare(b.item.inventoryItemId));
+
+  const detail: { requestItemId: string; inventoryItemId: string; quantity: number; stockBefore: number; stockAfter: number }[] = [];
+  for (const { item, quantity } of selected) {
+    // Descuento atómico: solo si alcanza el stock
+    const updated = await tx.inventoryItem.updateMany({
+      where: { id: item.inventoryItemId, quantity: { gte: quantity } },
+      data: { quantity: { decrement: quantity } },
+    });
+    const product = await tx.inventoryItem.findUniqueOrThrow({
+      where: { id: item.inventoryItemId },
+      select: { quantity: true, minStockLevel: true },
+    });
+    if (updated.count !== 1) {
+      throw new HttpError(409, `Stock insuficiente de ${item.productName}: hay ${product.quantity} disponibles`);
+    }
+    await tx.inventoryItem.update({
+      where: { id: item.inventoryItemId },
+      data: { status: stockStatus(product.quantity, product.minStockLevel) },
+    });
+    await tx.stockRequestItem.update({ where: { id: item.id }, data: { dispatchedQty: { increment: quantity } } });
+    detail.push({
+      requestItemId: item.id,
+      inventoryItemId: item.inventoryItemId,
+      quantity,
+      stockBefore: product.quantity + quantity,
+      stockAfter: product.quantity,
+    });
+  }
+  return detail;
+}
+
+/**
+ * Salida directa a venta o reposición: queda registrada como una solicitud ya aprobada y
+ * despachada por la misma persona, así aparece en el historial y los reportes. Todo o nada.
+ */
+export async function createDirectDispatch(userId: string, body: any, ip: string) {
+  const { type, key, note } = dispatchData(body);
+  const lines = await productLines(body.items);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      // Dos envíos simultáneos de la misma operación se procesan uno detrás del otro
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+      const previous = await tx.dispatch.findUnique({
+        where: { idempotencyKey: key },
+        include: { request: { select: { requesterId: true } } },
+      });
+      if (previous) {
+        if (previous.dispatchedById !== userId || previous.request.requesterId !== userId) {
+          throw new HttpError(409, 'Esa operación ya fue registrada en otra solicitud');
+        }
+        return { dispatch: previous, duplicate: true };
+      }
+
+      const request = await tx.stockRequest.create({
+        data: {
+          requesterId: userId,
+          reviewerId: userId,
+          reviewedAt: new Date(),
+          status: 'dispatched',
+          items: { create: lines.map((l) => ({ ...l, approvedQty: l.requestedQty })) },
+        },
+        include: { items: true },
+      });
+      const detail = await takeFromStock(tx, request.items.map((item) => ({ item, quantity: item.requestedQty })));
+      const dispatch = await tx.dispatch.create({
+        data: { requestId: request.id, type, dispatchedById: userId, receivedById: userId, note, idempotencyKey: key, items: { create: detail } },
+      });
+      return { dispatch, duplicate: false };
+    },
+    { timeout: 20_000 }
+  );
+
+  if (!result.duplicate) {
+    await logAudit({
+      action: 'DISPATCH',
+      entityType: 'STOCK_REQUEST',
+      entityId: result.dispatch.requestId,
+      userId,
+      changes: { dispatch: result.dispatch.number, type, lines: lines.length, direct: true },
+      ipAddress: ip,
+    });
+  }
+  return result;
+}
+
+/**
+ * Registra el despacho (total o parcial) de una solicitud aprobada.
+ * La clave de idempotencia evita registrar dos veces la misma operación (doble clic, reintentos).
+ */
+export async function dispatchRequest(id: string, userId: string, body: any, ip: string) {
+  const { type, key, note } = dispatchData(body);
   if (!Array.isArray(body.items) || body.items.length === 0 || body.items.length > 100) {
     throw new HttpError(400, 'Indica los productos a despachar');
   }
@@ -218,36 +323,7 @@ export async function dispatchRequest(id: string, userId: string, body: any, ip:
         }
         return { item, quantity };
       });
-      // Orden estable al descontar: evita interbloqueos entre despachos simultáneos
-      selected.sort((a, b) => a.item.inventoryItemId.localeCompare(b.item.inventoryItemId));
-
-      const detail: { requestItemId: string; inventoryItemId: string; quantity: number; stockBefore: number; stockAfter: number }[] = [];
-      for (const { item, quantity } of selected) {
-        // Descuento atómico: solo si alcanza el stock
-        const updated = await tx.inventoryItem.updateMany({
-          where: { id: item.inventoryItemId, quantity: { gte: quantity } },
-          data: { quantity: { decrement: quantity } },
-        });
-        const product = await tx.inventoryItem.findUniqueOrThrow({
-          where: { id: item.inventoryItemId },
-          select: { quantity: true, minStockLevel: true },
-        });
-        if (updated.count !== 1) {
-          throw new HttpError(409, `Stock insuficiente de ${item.productName}: hay ${product.quantity} disponibles`);
-        }
-        await tx.inventoryItem.update({
-          where: { id: item.inventoryItemId },
-          data: { status: stockStatus(product.quantity, product.minStockLevel) },
-        });
-        await tx.stockRequestItem.update({ where: { id: item.id }, data: { dispatchedQty: { increment: quantity } } });
-        detail.push({
-          requestItemId: item.id,
-          inventoryItemId: item.inventoryItemId,
-          quantity,
-          stockBefore: product.quantity + quantity,
-          stockAfter: product.quantity,
-        });
-      }
+      const detail = await takeFromStock(tx, selected);
 
       const complete = request.items.every(
         (i) => i.dispatchedQty + (lines.get(i.id) ?? 0) >= (i.approvedQty ?? 0)

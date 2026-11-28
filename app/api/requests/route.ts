@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireUser, handleError } from '@/lib/auth/guard';
-import { REQUESTERS, STAFF, has } from '@/lib/auth/roles';
+import { DIRECT_OUTPUT, REQUESTERS, STAFF, has } from '@/lib/auth/roles';
 import { createRequest, getRequestDetail, REQUEST_STATUSES } from '@/lib/requests';
 import { pageParams, toInt } from '@/lib/validate';
 import { clientIp, readJson } from '@/lib/http';
@@ -54,9 +54,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireUser(req, REQUESTERS);
+    // El vendedor solicita; quien puede autorizar crea una orden ya aprobada, para completarla luego
+    const user = await requireUser(req, [...REQUESTERS, ...DIRECT_OUTPUT]);
     const body = await readJson(req);
-    const created = await createRequest(user.userId, body, clientIp(req));
+    const created = await createRequest(user.userId, body, clientIp(req), has(DIRECT_OUTPUT, user.role));
     return NextResponse.json(await getRequestDetail(created.id, user), { status: 201 });
   } catch (error) {
     return handleError(error, 'Error creating request:');

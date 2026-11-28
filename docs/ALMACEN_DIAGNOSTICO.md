@@ -48,10 +48,11 @@ El stock baja **solo** al confirmar un despacho, dentro de una transacción que 
 | Acción | vendedor | encargado | supervisor | admin / superadmin |
 |---|:-:|:-:|:-:|:-:|
 | Catálogo sin precios | ✔ | ✔ | ✔ | ✔ |
-| Crear solicitud | ✔ | – | – | – |
+| Crear solicitud | ✔ | – | orden interna | orden interna |
 | Ver solicitudes | propias | todas | todas | todas |
 | Cancelar (sin despachos) | propias | ✔ | ✔ | ✔ |
 | Aprobar, rechazar, despachar | – | ✔ | ✔ | ✔ |
+| Salida inmediata (en un paso) | – | – | ✔ | ✔ |
 | Inventario (detallado y general) | – | consulta | consulta | ✔ |
 | Historial de movimientos | – | ✔ | ✔ | ✔ |
 | Reportes | – | sin valores monetarios | ✔ | ✔ |
@@ -63,12 +64,14 @@ El stock baja **solo** al confirmar un despacho, dentro de una transacción que 
 
 **Encargado**: en *Solicitudes* abre una pendiente, ajusta las cantidades autorizadas y **aprueba** o **rechaza**. En una aprobada indica cuánto entrega, elige **Salida a venta** o **Salida a reposición** y confirma. El stock baja solo en ese momento.
 
+**Órdenes internas** (supervisor, admin y superadmin): en *Solicitudes* → *Nueva orden* agrega los productos y pulsa **Guardar orden**. Queda como *Aprobada* y no descuenta stock. Cuando se concrete, ábrela, elige **Salida a venta** o **Salida a reposición** (tienda) y pulsa **Completar salida**; puedes entregar solo una parte o cancelarla si aún no se entregó nada. Si la salida es inmediata, usa **Registrar salida ahora**.
+
 **Inventario generalizado**: para que varias marcas se sumen, edita cada producto (vista detallada, rol admin) y escribe el mismo **Producto genérico** y los mismos color, tamaño, modelo y presentación.
 
 ## 7. Verificación
 
 `npm run test:almacen` (contra la base aislada `libreria_test`, ver instrucciones en `scripts/pruebas-almacen.js`):
-100 de 100 comprobaciones correctas, incluidos los 10 escenarios obligatorios, concurrencia, doble envío,
+125 de 125 comprobaciones correctas, incluidos los 10 escenarios obligatorios, concurrencia, doble envío,
 permisos por rol y restricciones de la base de datos.
 
 ## 8. Limitaciones conocidas

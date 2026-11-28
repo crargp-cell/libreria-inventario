@@ -5,7 +5,7 @@
 // 4) npm run test:almacen   (la base debe estar recién creada: las comprobaciones asumen datos limpios)
 const { PrismaClient } = require('@prisma/client');
 const DB = process.env.TEST_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/libreria_test';
-if (!/\/libreria_test(\?|$)/.test(DB)) throw new Error('Estas pruebas solo pueden usar la base libreria_test');
+if (!/\/libreria_test(_\w+)?(\?|$)/.test(DB)) throw new Error('Estas pruebas solo pueden usar una base libreria_test');
 const prisma = new PrismaClient({ datasources: { db: { url: DB } } });
 const B = process.env.TEST_BASE_URL || 'http://127.0.0.1:3001';
 const out = [];
@@ -248,12 +248,58 @@ function moneyKeys(value, path = '', found = []) {
     check('Rechaza', (await req('POST', `/api/requests/${s2.id}/reject`, T.sup, { note: 'No procede' })).json.status === 'rejected');
     const s3 = await ask();
     check('Cancela una pendiente', (await req('POST', `/api/requests/${s3.id}/cancel`, T.sup)).json.status === 'cancelled');
-    check('Sigue sin crear solicitudes ni administrar usuarios, auditoría o entradas',
+    check('Sigue sin administrar usuarios, auditoría o entradas',
       (await Promise.all([
-        req('POST', '/api/requests', T.sup, { items: [{ inventoryItemId: pen.id, quantity: 1 }] }),
         req('GET', '/api/users', T.sup), req('GET', '/api/audit-logs', T.sup), req('GET', '/api/restock', T.sup),
         req('POST', '/api/inventory', T.sup, {}),
       ])).every((r) => r.status === 403));
+
+    // ---------- Salida directa (superadmin, admin y supervisor) ----------
+    S('Salida directa a venta o reposición');
+    const item = pens[3].id;
+    await prisma.inventoryItem.update({ where: { id: item }, data: { quantity: 20 } });
+    const out1 = { type: 'venta', idempotencyKey: key(), note: 'Directo a tienda', items: [{ inventoryItemId: item, quantity: 3 }] };
+    const [o1, o2] = await Promise.all([req('POST', '/api/requests/direct', T.sup, out1), req('POST', '/api/requests/direct', T.sup, out1)]);
+    check('Doble envío simultáneo: una sola salida y stock baja 3', [o1.status, o2.status].sort().join() === '200,201' && (await qty(item)) === 17, `${o1.status}/${o2.status}`);
+    const direct = [o1, o2].find((r) => r.status === 201)?.json.request;
+    check('Queda despachada y a nombre de quien la registra', direct?.status === 'dispatched' && direct.requesterId === sup.user.id && direct.reviewer.id === sup.user.id && direct.dispatches.length === 1 && direct.dispatches[0].type === 'venta');
+    check('La respuesta no incluye precios', !/unitPrice/.test(o1.text + o2.text));
+    const o3 = await req('POST', '/api/requests/direct', T.sa, { ...out1, type: 'reposicion', idempotencyKey: key() });
+    check('Superadmin registra una salida a reposición', o3.status === 201 && (await qty(item)) === 14);
+    check('Reutilizar la clave de otra persona => 409', (await req('POST', '/api/requests/direct', T.sa, out1)).status === 409 && (await qty(item)) === 14);
+    const before2 = await prisma.stockRequest.count();
+    const tooMuch = await req('POST', '/api/requests/direct', T.sup, { type: 'venta', idempotencyKey: key(), items: [{ inventoryItemId: pen.id, quantity: 1 }, { inventoryItemId: item, quantity: 999 }] });
+    check('Sin stock suficiente => 409 y no se descuenta ni registra nada', tooMuch.status === 409 && (await qty(item)) === 14 && (await qty(pen.id)) === 5 && (await prisma.stockRequest.count()) === before2, tooMuch.json?.error);
+    const race = await Promise.all([1, 2].map(() => req('POST', '/api/requests/direct', T.sup, { type: 'venta', idempotencyKey: key(), items: [{ inventoryItemId: item, quantity: 10 }] })));
+    check('Dos salidas simultáneas de 10 con 14: solo una pasa', race.map((r) => r.status).sort().join() === '201,409' && (await qty(item)) === 4, race.map((r) => r.status).join('/'));
+    for (const [name, patch] of [['sin tipo', { type: undefined }], ['sin clave', { idempotencyKey: undefined }], ['cantidad 0', { items: [{ inventoryItemId: item, quantity: 0 }] }], ['negativa', { items: [{ inventoryItemId: item, quantity: -4 }] }], ['decimal', { items: [{ inventoryItemId: item, quantity: 1.5 }] }], ['vacía', { items: [] }]]) {
+      check(`Salida directa ${name} => 400`, (await req('POST', '/api/requests/direct', T.sup, { ...out1, idempotencyKey: key(), ...patch })).status === 400);
+    }
+    for (const [name, token, status] of [['Vendedor', T.v1, 403], ['Encargado', T.enc, 403], ['Sin sesión', null, 401]]) {
+      check(`${name} no registra salidas directas (${status})`, (await req('POST', '/api/requests/direct', token, { ...out1, idempotencyKey: key() })).status === status && (await qty(item)) === 4);
+    }
+    const supCat = (await req('GET', `/api/catalog?q=${encodeURIComponent(run)}`, T.sup)).json.items;
+    const venCat = (await req('GET', `/api/catalog?q=${encodeURIComponent(run)}`, T.v1)).json.items;
+    check('El catálogo da cantidades al almacén y no al vendedor', supCat.every((i) => Number.isInteger(i.stock)) && venCat.every((i) => !('stock' in i)));
+    check('Aparece en el historial', (await f(`requesterId=${sup.user.id}`)).some((m) => m.requestId === direct?.id && m.dispatchedQty === 3 && m.dispatchNote === 'Directo a tienda'));
+    const st2 = (await req('GET', '/api/reports/stats?days=30', T.sa)).json;
+    check('No cuenta como abastecimiento de un vendedor', st2.dispatches.byRequester.every((r) => ![sup.user.name, sa.user.name].includes(r.name)) && Number.isInteger(st2.requests.created));
+
+    // ---------- Orden propia: se guarda y se completa después ----------
+    S('Orden propia (admin y supervisor)');
+    await prisma.inventoryItem.update({ where: { id: item }, data: { quantity: 10 } });
+    const ord = await req('POST', '/api/requests', T.sup, { note: 'Pedido de cliente', items: [{ inventoryItemId: item, quantity: 4 }] });
+    check('El supervisor guarda una orden: nace aprobada', ord.status === 201 && ord.json.status === 'approved' && ord.json.reviewer.id === sup.user.id && ord.json.items[0].approvedQty === 4);
+    check('Guardar la orden NO descuenta stock', (await qty(item)) === 10);
+    const done = await req('POST', `/api/requests/${ord.json.id}/dispatch`, T.sup, { type: 'venta', idempotencyKey: key(), items: [{ itemId: ord.json.items[0].id, quantity: 4 }] });
+    check('Completarla como venta descuenta el stock', done.status === 201 && done.json.request.status === 'dispatched' && (await qty(item)) === 6);
+    check('No se puede completar dos veces', (await req('POST', `/api/requests/${ord.json.id}/dispatch`, T.sup, { type: 'venta', idempotencyKey: key(), items: [{ itemId: ord.json.items[0].id, quantity: 1 }] })).status === 409);
+    const ord2 = (await req('POST', '/api/requests', T.sa, { items: [{ inventoryItemId: item, quantity: 50 }] })).json;
+    check('Una orden mayor que el stock se guarda pero no se completa sin existencias', ord2.status === 'approved' && (await req('POST', `/api/requests/${ord2.id}/dispatch`, T.sa, { type: 'venta', idempotencyKey: key(), items: [{ itemId: ord2.items[0].id, quantity: 50 }] })).status === 409 && (await qty(item)) === 6);
+    check('Una orden sin completar se puede cancelar', (await req('POST', `/api/requests/${ord2.id}/cancel`, T.sa)).json.status === 'cancelled');
+    check('El vendedor no ve las órdenes internas', (await req('GET', `/api/requests/${ord.json.id}`, T.v1)).status === 404);
+    check('La solicitud del vendedor sigue naciendo pendiente', (await req('POST', '/api/requests', T.v1, { items: [{ inventoryItemId: item, quantity: 1 }] })).json.status === 'pending');
+    check('El encargado sigue sin crear órdenes', (await req('POST', '/api/requests', T.enc, { items: [{ inventoryItemId: item, quantity: 1 }] })).status === 403);
   } catch (e) {
     console.error('EXCEPCIÓN', e);
     check('excepción: ' + e.message, false);

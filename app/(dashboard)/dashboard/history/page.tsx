@@ -10,6 +10,7 @@ import { StatusBadge, TypeBadge } from '@/components/requests/StatusBadge';
 import { RequestDetail } from '@/components/requests/RequestDetail';
 import { api, dateTime, requestCode } from '@/lib/client';
 import { label } from '@/lib/labels';
+import { isOwnOrder } from '@/lib/auth/roles';
 
 interface Movement {
   id: string;
@@ -26,6 +27,9 @@ interface Movement {
   dispatchedQty: number | null;
   status: string;
   requester: string | null;
+  requesterId: string | null;
+  reviewerId: string | null;
+  dispatchedById: string | null;
   reviewer: string | null;
   dispatcher: string | null;
   requestedAt: string;
@@ -111,7 +115,7 @@ export default function HistoryPage() {
           </div>
           {select('type', 'Tipo de salida', [['venta', label('venta')], ['reposicion', label('reposicion')], ['solicitud', 'Sin despacho'], ['entrada', 'Entrada al almacén']])}
           {select('status', 'Estado de solicitud', ['pending', 'approved', 'partially_dispatched', 'dispatched', 'rejected', 'cancelled'].map((s) => [s, label(s)] as [string, string]))}
-          {select('requesterId', 'Vendedor', people.requesters.map((p) => [p.id, p.name] as [string, string]))}
+          {select('requesterId', 'Solicitante',people.requesters.map((p) => [p.id, p.name] as [string, string]))}
           {select('handlerId', 'Encargado', people.handlers.map((p) => [p.id, p.name] as [string, string]))}
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -166,8 +170,8 @@ export default function HistoryPage() {
                     </td>
                     <td data-label="Personas" className="py-3 px-3 text-sm text-gray-700">
                       <div>
-                        {m.requester && <div>Vendedor: {m.requester}</div>}
-                        {(m.dispatcher || m.reviewer) && <div>Encargado: {m.dispatcher || m.reviewer}</div>}
+                        {m.requester && <div>{isOwnOrder(m.requesterId, m.reviewerId) ? 'Orden interna' : 'Vendedor'}: {m.requester}</div>}
+                        {(!isOwnOrder(m.requesterId, m.reviewerId) || (m.dispatchedById && m.dispatchedById !== m.requesterId)) && (m.dispatcher || m.reviewer) && <div>Encargado: {m.dispatcher || m.reviewer}</div>}
                         {m.dispatcher && m.reviewer && m.reviewer !== m.dispatcher && <div className="text-xs text-gray-500">Aprobó: {m.reviewer}</div>}
                       </div>
                     </td>

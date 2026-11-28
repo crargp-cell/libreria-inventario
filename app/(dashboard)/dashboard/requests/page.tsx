@@ -11,13 +11,15 @@ import { RequestDetail } from '@/components/requests/RequestDetail';
 import { StatusBadge } from '@/components/requests/StatusBadge';
 import { api, dateTime, requestCode } from '@/lib/client';
 import { label } from '@/lib/labels';
+import { DIRECT_OUTPUT, has, isOwnOrder } from '@/lib/auth/roles';
 
 interface Row {
   id: string;
   number: number;
   status: string;
   createdAt: string;
-  requester: { name: string };
+  requester: { id: string; name: string };
+  reviewerId: string | null;
   itemCount: number;
   preview: string[];
   requestedUnits: number;
@@ -31,7 +33,11 @@ const PAGE = 15;
 export default function RequestsPage() {
   const { token, user } = useAuth();
   const isVendor = user?.role === 'vendedor';
+  const canOutput = has(DIRECT_OUTPUT, user?.role);
   const [tab, setTab] = useState<'new' | 'list'>(isVendor ? 'new' : 'list');
+  const tabs = isVendor
+    ? ([['new', 'Nueva solicitud'], ['list', 'Mis solicitudes']] as const)
+    : ([['list', 'Órdenes'], ['new', 'Nueva orden']] as const);
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -70,13 +76,17 @@ export default function RequestsPage() {
       <div className="mb-6">
         <h1 className="text-2xl sm:text-4xl font-bold text-[#0B1B4D] mb-1">Solicitudes al almacén</h1>
         <p className="text-gray-600">
-          {isVendor ? 'Pide productos para abastecer el mostrador y sigue el estado de tus pedidos.' : 'Revisa, aprueba y despacha los pedidos de los vendedores.'}
+          {isVendor
+            ? 'Pide productos para abastecer el mostrador y sigue el estado de tus pedidos.'
+            : canOutput
+              ? 'Revisa los pedidos de los vendedores, o crea una orden y complétala después como salida a venta o tienda.'
+              : 'Revisa, aprueba y despacha los pedidos de los vendedores.'}
         </p>
       </div>
 
-      {isVendor && (
+      {(isVendor || canOutput) && (
         <div className="mb-5 inline-flex rounded-xl bg-white p-1 border border-blue-100" role="tablist">
-          {([['new', 'Nueva solicitud'], ['list', 'Mis solicitudes']] as const).map(([key, text]) => (
+          {tabs.map(([key, text]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
               className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition-[background-color,color] duration-150 ${tab === key ? 'bg-[#1D4ED8] text-white' : 'text-gray-700 hover:bg-[#E4ECFF]'}`}>
               {text}
@@ -85,8 +95,8 @@ export default function RequestsPage() {
         </div>
       )}
 
-      {isVendor && tab === 'new' ? (
-        <NewRequest token={token} onSent={() => { setStatus(''); setPage(0); setTab('list'); load(); }} />
+      {(isVendor || canOutput) && tab === 'new' ? (
+        <NewRequest token={token} direct={canOutput} onSent={() => { setStatus(''); setPage(0); setTab('list'); load(); }} />
       ) : (
         <>
           <div className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar por estado">
@@ -104,7 +114,7 @@ export default function RequestsPage() {
           ) : rows.length === 0 ? (
             <Card><p className="py-10 text-center text-gray-500">No hay solicitudes {status ? `en estado "${label(status)}"` : 'todavía'}.</p></Card>
           ) : (
-            <ul className="stagger grid gap-3">
+            <ul className="stagger grid grid-cols-1 gap-3">
               {rows.map((r) => (
                 <li key={r.id}>
                   <button type="button" onClick={() => setOpenId(r.id)}
@@ -116,7 +126,7 @@ export default function RequestsPage() {
                       </div>
                       <span className="text-sm text-gray-500">{dateTime(r.createdAt)}</span>
                     </div>
-                    {!isVendor && <p className="mt-1 text-sm text-gray-700">Vendedor: <strong>{r.requester.name}</strong></p>}
+                    {!isVendor && <p className="mt-1 text-sm text-gray-700">{isOwnOrder(r.requester.id, r.reviewerId) ? 'Orden interna' : 'Vendedor'}: <strong>{r.requester.name}</strong></p>}
                     <p className="mt-1 truncate text-sm text-gray-600">
                       {r.preview.join(', ')}{r.itemCount > r.preview.length ? ` y ${r.itemCount - r.preview.length} más` : ''}
                     </p>

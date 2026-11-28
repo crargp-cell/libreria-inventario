@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { notify } from '@/components/ui/Toast';
-import { api, requestCode } from '@/lib/client';
+import { DispatchTypePicker, type DispatchType } from './DispatchTypePicker';
+import { api, operationKey, requestCode } from '@/lib/client';
 import { detailsText } from '@/lib/products';
 import { packSingular } from '@/lib/packs';
 
@@ -24,6 +25,7 @@ interface CatalogItem {
   unitsPerPack: number;
   packName?: string | null;
   available: boolean;
+  stock?: number; // solo llega al personal del almacén
   category: { name: string };
 }
 
@@ -37,15 +39,20 @@ const PAGE = 12;
 const unitsOf = (l: Line) => (parseInt(l.quantity) || 0) * (l.byPack ? l.item.unitsPerPack : 1);
 const subtitle = (i: CatalogItem) => [i.supplier, detailsText(i), i.description].filter(Boolean).join(' · ');
 
-export function NewRequest({ token, onSent }: { token: string; onSent: () => void }) {
+/** Catálogo + lista de productos. Con `direct` guarda una orden propia o registra la salida en el acto; sin él, la pide al almacén. */
+export function NewRequest({ token, onSent, direct = false }: { token: string; onSent: () => void; direct?: boolean }) {
   const [query, setQuery] = useState('');
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [onlyAvailable, setOnlyAvailable] = useState(direct);
   const [page, setPage] = useState(0);
   const [items, setItems] = useState<CatalogItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState('');
+  const [type, setType] = useState<DispatchType | ''>('');
   const [sending, setSending] = useState(false);
+  const [version, setVersion] = useState(0);
+  // La misma clave se reutiliza si se reintenta la misma salida
+  const outputKey = useRef(operationKey());
 
   useEffect(() => setPage(0), [query, onlyAvailable]);
 
@@ -58,40 +65,73 @@ export function NewRequest({ token, onSent }: { token: string; onSent: () => voi
         const data = await api(token, `/api/catalog?${params}`);
         setItems(data.items);
         setTotal(data.total);
+        // Las cantidades en almacén de la lista elegida se mantienen al día
+        setLines((prev) => prev.map((l) => ({ ...l, item: (data.items as CatalogItem[]).find((i) => i.id === l.item.id) ?? l.item })));
       } catch (e) {
         setItems([]);
         notify((e as Error).message, 'error');
       }
     }, query ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [token, query, onlyAvailable, page]);
+  }, [token, query, onlyAvailable, page, version]);
 
   const add = (item: CatalogItem) =>
     setLines((prev) => (prev.some((l) => l.item.id === item.id) ? prev : [...prev, { item, quantity: '1', byPack: false }]));
   const update = (id: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.item.id === id ? { ...l, ...patch } : l)));
   const remove = (id: string) => setLines((prev) => prev.filter((l) => l.item.id !== id));
+  const short = (l: Line) => direct && l.item.stock !== undefined && unitsOf(l) > l.item.stock;
 
-  const send = async () => {
+  /** `now` registra la salida en el acto; sin él se envía la solicitud o se guarda la orden. */
+  const send = async (now = false) => {
     if (lines.some((l) => unitsOf(l) < 1)) {
       notify('Cada producto necesita una cantidad de al menos 1', 'warning');
       return;
     }
+    if (now) {
+      if (!type) {
+        notify('Elige el tipo de salida: venta o reposición', 'warning');
+        return;
+      }
+      const missing = lines.find(short);
+      if (missing) {
+        notify(`Stock insuficiente de ${missing.item.name}: hay ${missing.item.stock} disponibles`, 'warning');
+        return;
+      }
+      const units = lines.reduce((s, l) => s + unitsOf(l), 0);
+      const kind = type === 'venta' ? 'SALIDA A VENTA' : 'SALIDA A REPOSICIÓN';
+      if (!confirm(`¿Confirmar ${kind} de ${units} unidades? El stock se descontará del almacén.`)) return;
+    }
     setSending(true);
     try {
-      const created = await api(token, '/api/requests', {
+      const body = {
         note: note.trim() || undefined,
         items: lines.map((l) => ({ inventoryItemId: l.item.id, quantity: unitsOf(l) })),
-      });
-      notify(`Solicitud ${requestCode(created.number)} enviada al almacén`, 'success');
+      };
+      if (now) {
+        const res = await api(token, '/api/requests/direct', { ...body, type, idempotencyKey: outputKey.current });
+        const code = requestCode(res.request.number);
+        notify(res.duplicate ? `Esa salida ya estaba registrada (${code})` : `Salida ${code} registrada`, res.duplicate ? 'warning' : 'success');
+        outputKey.current = operationKey();
+        setType('');
+      } else {
+        const created = await api(token, '/api/requests', body);
+        const code = requestCode(created.number);
+        notify(direct ? `Orden ${code} guardada. Complétala cuando se concrete la salida.` : `Solicitud ${code} enviada al almacén`, 'success');
+        setType('');
+      }
       setLines([]);
       setNote('');
       onSent();
     } catch (e) {
       notify((e as Error).message, 'error');
+      // El stock pudo cambiar: se vuelve a cargar
+      setVersion((v) => v + 1);
     } finally {
       setSending(false);
     }
   };
+
+  const listTitle = direct ? 'Tu orden' : 'Tu solicitud';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -129,7 +169,9 @@ export function NewRequest({ token, onSent }: { token: string; onSent: () => voi
                       {subtitle(item) ? ` · ${subtitle(item)}` : ''}
                     </p>
                     <div className="mt-1">
-                      <Badge variant={item.available ? 'success' : 'default'}>{item.available ? 'Disponible' : 'Sin stock'}</Badge>
+                      <Badge variant={item.available ? 'success' : 'default'}>
+                        {!item.available ? 'Sin stock' : direct && item.stock !== undefined ? `En almacén: ${item.stock}` : 'Disponible'}
+                      </Badge>
                     </div>
                   </div>
                   <Button size="sm" variant={added ? 'ghost' : 'secondary'} disabled={added} onClick={() => add(item)} aria-label={`Agregar ${item.name}`}>
@@ -151,17 +193,17 @@ export function NewRequest({ token, onSent }: { token: string; onSent: () => voi
         )}
       </Card>
 
-      {/* En móvil la solicitud queda bajo el catálogo: acceso directo mientras se agregan productos */}
+      {/* En móvil la lista queda bajo el catálogo: acceso directo mientras se agregan productos */}
       {lines.length > 0 && (
         <Button
           className="lg:hidden !fixed bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-4 z-20 anim-fade-up"
           onClick={() => document.getElementById('tu-solicitud')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
         >
-          Ver tu solicitud ({lines.length})
+          Ver {listTitle.toLowerCase()} ({lines.length})
         </Button>
       )}
 
-      <Card id="tu-solicitud" title={`Tu solicitud (${lines.length})`} className="lg:col-span-2 h-fit lg:sticky lg:top-0 max-lg:mb-16">
+      <Card id="tu-solicitud" title={`${listTitle} (${lines.length})`} className="lg:col-span-2 h-fit lg:sticky lg:top-0 max-lg:mb-16">
         {lines.length === 0 ? (
           <p className="py-6 text-center text-gray-500">Agrega productos desde el catálogo.</p>
         ) : (
@@ -202,13 +244,14 @@ export function NewRequest({ token, onSent }: { token: string; onSent: () => voi
                   )}
                   {l.byPack && <span className="text-sm text-gray-600">= {unitsOf(l)} piezas</span>}
                 </div>
+                {short(l) && <p className="mt-1 text-sm font-semibold text-red-600">Solo hay {l.item.stock} en almacén</p>}
               </li>
             ))}
           </ul>
         )}
 
         <label htmlFor="request-note" className="mt-4 mb-1.5 block text-sm font-semibold text-gray-900">
-          Observación o justificación (opcional)
+          {direct ? 'Observación (opcional)' : 'Observación o justificación (opcional)'}
         </label>
         <textarea
           id="request-note"
@@ -216,12 +259,25 @@ export function NewRequest({ token, onSent }: { token: string; onSent: () => voi
           maxLength={500}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Ej.: los clientes están pidiendo bolígrafos azules"
+          placeholder={direct ? 'Ej.: entregado a la tienda para el mostrador' : 'Ej.: los clientes están pidiendo bolígrafos azules'}
           className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-[#1D4ED8]"
         />
-        <Button className="mt-3 w-full" isLoading={sending} disabled={lines.length === 0} onClick={send}>
-          Enviar solicitud al almacén
+        <Button className="mt-3 w-full" isLoading={sending} disabled={lines.length === 0} onClick={() => send()}>
+          {direct ? 'Guardar orden' : 'Enviar solicitud al almacén'}
         </Button>
+
+        {direct && (
+          <>
+            <p className="mt-2 text-xs text-gray-600">El stock no cambia hasta que completes la orden desde la pestaña Órdenes.</p>
+            <div className="mt-5 border-t border-blue-100 pt-4">
+              <p className="mb-3 text-sm text-gray-600">¿La salida es ahora mismo? Elige el tipo y regístrala en un solo paso.</p>
+              <DispatchTypePicker value={type} onChange={setType} />
+              <Button variant="secondary" className="mt-3 w-full" disabled={sending || lines.length === 0} onClick={() => send(true)}>
+                Registrar salida ahora
+              </Button>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );

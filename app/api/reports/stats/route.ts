@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
         prisma.inventoryItem.count({ where: { status: 'low_stock' } }),
         prisma.inventoryItem.count({ where: { status: 'out_of_stock' } }),
         prisma.stockRequest.groupBy({ by: ['status'], _count: true }),
-        prisma.stockRequest.count({ where: { createdAt: { gte: startDate } } }),
+        // Las salidas directas no son pedidos de un vendedor
+        prisma.$queryRaw<{ total: number }[]>`
+          SELECT COUNT(*)::int AS total FROM "StockRequest"
+          WHERE "createdAt" >= (${startDate}::timestamptz AT TIME ZONE 'UTC') AND "requesterId" IS DISTINCT FROM "reviewerId"`,
         prisma.restockRequest.count({ where: { status: 'pending' } }),
         prisma.$queryRaw<{ value: number; units: number; withStock: number }[]>`
           SELECT COALESCE(SUM(quantity * "unitPrice"), 0)::float AS value,
@@ -55,7 +58,8 @@ export async function GET(req: NextRequest) {
           SELECT u.name, COUNT(DISTINCT d.id)::int AS dispatches, SUM(di.quantity)::int AS units
           FROM "DispatchItem" di JOIN "Dispatch" d ON d.id = di."dispatchId"
           JOIN "User" u ON u.id = d."receivedById"
-          WHERE d."createdAt" >= (${startDate}::timestamptz AT TIME ZONE 'UTC')
+          JOIN "StockRequest" r ON r.id = d."requestId"
+          WHERE d."createdAt" >= (${startDate}::timestamptz AT TIME ZONE 'UTC') AND r."requesterId" IS DISTINCT FROM r."reviewerId"
           GROUP BY u.id, u.name ORDER BY units DESC LIMIT 5`,
         prisma.$queryRaw<{ name: string; units: number }[]>`
           SELECT c.name, SUM(di.quantity)::int AS units
@@ -87,7 +91,7 @@ export async function GET(req: NextRequest) {
       },
       requests: {
         byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count])),
-        created: createdRequests,
+        created: createdRequests[0]?.total ?? 0,
       },
       dispatches: {
         count: dispatchCount,

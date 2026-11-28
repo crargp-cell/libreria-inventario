@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireUser, handleError } from '@/lib/auth/guard';
+import { STAFF, has } from '@/lib/auth/roles';
 import { pageParams } from '@/lib/validate';
 import { searchWords } from '@/lib/products';
 
 // Catálogo para solicitar productos. Lista blanca de campos: NUNCA incluye precios, costos,
-// ni cantidades en stock (solo si hay disponibilidad).
+// y las cantidades en stock solo van al personal del almacén (el vendedor ve disponibilidad).
 export async function GET(req: NextRequest) {
   try {
-    await requireUser(req);
+    const user = await requireUser(req);
+    // Solo el personal del almacén recibe la cantidad disponible
+    const staff = has(STAFF, user.role);
     const { searchParams } = new URL(req.url);
     const { skip, take } = pageParams(searchParams, 20, 50);
 
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest) {
           description: true,
           unitsPerPack: true,
           packName: true,
-          quantity: true, // solo para calcular la disponibilidad; no se envía
+          quantity: true, // para la disponibilidad; la cifra no se envía al vendedor
           category: { select: { name: true } },
         },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
       prisma.inventoryItem.count({ where }),
     ]);
 
-    const items = rows.map(({ quantity, ...item }) => ({ ...item, available: quantity > 0 }));
+    const items = rows.map(({ quantity, ...item }) => ({ ...item, available: quantity > 0, ...(staff ? { stock: quantity } : {}) }));
     return NextResponse.json({ items, total, skip, take });
   } catch (error) {
     return handleError(error, 'Error fetching catalog:');

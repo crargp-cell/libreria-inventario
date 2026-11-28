@@ -8,7 +8,8 @@ import { notify } from '@/components/ui/Toast';
 import { StatusBadge, TypeBadge } from './StatusBadge';
 import { api, dateTime, operationKey, requestCode } from '@/lib/client';
 import { formatStock } from '@/lib/packs';
-import { WAREHOUSE, has } from '@/lib/auth/roles';
+import { WAREHOUSE, has, isOwnOrder } from '@/lib/auth/roles';
+import { DispatchTypePicker } from './DispatchTypePicker';
 
 interface Item {
   id: string;
@@ -35,7 +36,7 @@ interface Detail {
   cancelledAt?: string | null;
   requesterId: string;
   requester: { name: string };
-  reviewer?: { name: string } | null;
+  reviewer?: { id: string; name: string } | null;
   cancelledBy?: { name: string } | null;
   items: Item[];
   dispatches: {
@@ -44,7 +45,7 @@ interface Detail {
     type: string;
     note?: string | null;
     createdAt: string;
-    dispatchedBy: { name: string };
+    dispatchedBy: { id: string; name: string };
     receivedBy: { name: string };
     items: { id: string; requestItemId: string; quantity: number }[];
   }[];
@@ -125,6 +126,7 @@ export function RequestDetail({ id, token, user, onClose, onChanged }: Props) {
   };
 
   const warehouse = has(WAREHOUSE, user.role);
+  const own = isOwnOrder(data?.requesterId, data?.reviewer?.id);
   const canReview = warehouse && data?.status === 'pending';
   const canDispatch = warehouse && (data?.status === 'approved' || data?.status === 'partially_dispatched');
   const canCancel =
@@ -159,7 +161,7 @@ export function RequestDetail({ id, token, user, onClose, onChanged }: Props) {
             {data && (
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
                 <StatusBadge status={data.status} />
-                <span>Solicitada por <strong className="text-gray-900">{data.requester.name}</strong> · {dateTime(data.createdAt)}</span>
+                <span>{own ? 'Orden interna de' : 'Solicitada por'} <strong className="text-gray-900">{data.requester.name}</strong> · {dateTime(data.createdAt)}</span>
               </div>
             )}
           </div>
@@ -172,9 +174,9 @@ export function RequestDetail({ id, token, user, onClose, onChanged }: Props) {
           <div className="mt-4 space-y-5">
             <dl className="grid gap-2 text-sm">
               {data.note && (
-                <div><dt className="font-semibold text-gray-900">Observación del vendedor</dt><dd className="text-gray-700 break-words">{data.note}</dd></div>
+                <div><dt className="font-semibold text-gray-900">{own ? 'Observación de la orden' : 'Observación del vendedor'}</dt><dd className="text-gray-700 break-words">{data.note}</dd></div>
               )}
-              {data.reviewer && (
+              {data.reviewer && !own && (
                 <div>
                   <dt className="font-semibold text-gray-900">{data.status === 'rejected' ? 'Rechazada' : 'Revisada'} por {data.reviewer.name} · {dateTime(data.reviewedAt)}</dt>
                   {data.reviewNote && <dd className="text-gray-700 break-words">{data.reviewNote}</dd>}
@@ -237,25 +239,7 @@ export function RequestDetail({ id, token, user, onClose, onChanged }: Props) {
 
             {(canReview || canDispatch) && (
               <div className="rounded-xl border border-blue-100 bg-[#F3F7FF] p-4 space-y-3">
-                {canDispatch && (
-                  <fieldset>
-                    <legend className="mb-2 text-sm font-semibold text-gray-900">Tipo de salida (obligatorio)</legend>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {([
-                        ['venta', 'Salida a venta', 'Para atender clientes en el mostrador'],
-                        ['reposicion', 'Salida a reposición', 'Para reponer el mostrador o la exhibición'],
-                      ] as const).map(([value, title, help]) => (
-                        <label key={value} className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 bg-white p-3 transition-[border-color] duration-150 ${type === value ? 'border-[#1D4ED8]' : 'border-gray-200 hover:border-gray-300'}`}>
-                          <input type="radio" name="dispatch-type" className="mt-1 size-4 accent-[#1D4ED8]" checked={type === value} onChange={() => setType(value)} />
-                          <span>
-                            <span className="block text-sm font-semibold text-gray-900">{title}</span>
-                            <span className="block text-xs text-gray-600">{help}</span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
+                {canDispatch && <DispatchTypePicker value={type} onChange={setType} />}
                 <div>
                   <label htmlFor="warehouse-note" className="mb-1.5 block text-sm font-semibold text-gray-900">Observación del encargado (opcional)</label>
                   <textarea id="warehouse-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)}
@@ -272,7 +256,7 @@ export function RequestDetail({ id, token, user, onClose, onChanged }: Props) {
                       </Button>
                     </>
                   )}
-                  {canDispatch && <Button isLoading={busy} onClick={confirmDispatch}>Confirmar despacho</Button>}
+                  {canDispatch && <Button isLoading={busy} onClick={confirmDispatch}>{own ? 'Completar salida' : 'Confirmar despacho'}</Button>}
                 </div>
               </div>
             )}
@@ -286,7 +270,7 @@ export function RequestDetail({ id, token, user, onClose, onChanged }: Props) {
                       <div className="flex flex-wrap items-center gap-2">
                         <strong className="text-gray-900">Despacho #{d.number}</strong>
                         <TypeBadge type={d.type} />
-                        <span className="text-gray-600">{dateTime(d.createdAt)} · entregó {d.dispatchedBy.name} · recibe {d.receivedBy.name}</span>
+                        <span className="text-gray-600">{dateTime(d.createdAt)} · {own && d.dispatchedBy.id === data.requesterId ? `registró ${d.dispatchedBy.name}` :`entregó ${d.dispatchedBy.name} · recibe ${d.receivedBy.name}`}</span>
                       </div>
                       <ul className="mt-1 text-gray-700">
                         {d.items.map((line) => (
